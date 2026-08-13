@@ -38,6 +38,11 @@ const checks = [
     name: "Inline instance worker hydration harness"
   },
   {
+    url: "http://127.0.0.1:4173/tests/constrained-setvalue-action-smoke.html",
+    expected: "PASS: Direct trigger setvalue actions resolve one target and mutate through the worker.",
+    name: "Constrained setvalue action harness"
+  },
+  {
     url: "http://127.0.0.1:4173/tests/discovered-repeat-projection-smoke.html",
     expected: "PASS: Discovered collection binding projects keyed repeat occurrences without component XML ownership.",
     name: "Discovered repeat projection harness"

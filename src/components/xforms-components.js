@@ -418,6 +418,7 @@
       this.componentObserver = null;
       this.hydrationQueued = false;
       this.pendingControlRefBindings = new Map();
+      this.actionBridge = null;
     }
 
     connectedCallback() {
@@ -447,6 +448,7 @@
       const configuredNodeCount = Number(this.getAttribute("node-count") || 0);
       const discoveredModel = this.hasAttribute("discover-model") ? discoverInlineModel(this, configuredNodeCount) : null;
       const discoveredInstance = discoveredModel?.instance ?? null;
+      if (this.hasAttribute("enable-setvalue-actions")) this.actionBridge = createSetValueActionBridge(discoveredModel, this, this.engineClient);
       if (this.hasAttribute("project-repeats")) projectDiscoveredRepeats(discoveredModel, this);
       const nodeCount = discoveredInstance?.nodeCount ?? configuredNodeCount;
       const explicitDependencies = parseDependencies(this.getAttribute("dependencies"));
@@ -475,6 +477,8 @@
       this.componentObserver = null;
       this.hydrationQueued = false;
       this.pendingControlRefBindings.clear();
+      this.actionBridge?.dispose();
+      this.actionBridge = null;
       for (const component of this.querySelectorAll(CONTROL_SELECTOR)) component.bindClient?.(null);
       this.engineClient?.dispose();
       this.engineClient = null;
@@ -614,6 +618,14 @@
   function mergeHydrationProjections(generated, explicit) {
     const explicitNodeIds = new Set(explicit.map((entry) => entry?.nodeId));
     return [...generated.filter((entry) => !explicitNodeIds.has(entry.nodeId)), ...explicit];
+  }
+
+  function createSetValueActionBridge(discoveredModel, host, client) {
+    if (!discoveredModel) throw new Error("<xforms-host enable-setvalue-actions> requires discover-model and one inline xf:instance.");
+    if (!root.XFormsSetValueActionBridge?.create) {
+      throw new Error("Load xforms-setvalue-action-bridge.js before using <xforms-host enable-setvalue-actions>.");
+    }
+    return root.XFormsSetValueActionBridge.create({ host, client, inlineInstanceXml: discoveredModel.instance.xml });
   }
 
   function projectDiscoveredRepeats(discoveredModel, host) {
