@@ -437,9 +437,12 @@
     applyConstrainedRecalculation(message) {
       if (!this.recalculator || !this.hasAttribute("recalculate-calculates")) return;
       try {
-        this.recalculator.applyPatches(message.sequence, message.patches, (originSequence, values) => {
-          this.engineClient.submitCalculatedValues(originSequence, values);
-        });
+        this.recalculator.applyPatches(
+          message.sequence,
+          message.patches,
+          (originSequence, values) => this.engineClient.submitCalculatedValues(originSequence, values),
+          (originSequence, entries) => this.engineClient.submitResolvedModelItemState(originSequence, entries)
+        );
       } catch (error) {
         this.dispatchEvent(new CustomEvent("xforms-recalculation-diagnostic", {
           detail: { code: error.code || "recalculation-failed", message: error.message }, bubbles: true, composed: true

@@ -50,6 +50,10 @@
       return this.request("calculated-values", { originSequence, values });
     }
 
+    submitResolvedModelItemState(originSequence, entries) {
+      return this.request("resolved-model-item-state", { originSequence, entries });
+    }
+
     request(kind, body) {
       const sequence = ++this.sequence;
       this.worker.postMessage({ protocolVersion: PROTOCOL_VERSION, kind, sequence, ...body });

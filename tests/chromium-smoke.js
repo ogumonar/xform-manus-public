@@ -38,6 +38,16 @@ const checks = [
     name: "Inline instance worker hydration harness"
   },
   {
+    url: "http://127.0.0.1:4173/tests/constrained-model-item-state-recalculation-smoke.html",
+    expected: "PASS: Constrained recalculation submits resolved model-item state after source intents.",
+    name: "Constrained model-item state recalculation harness"
+  },
+  {
+    url: "http://127.0.0.1:4173/tests/resolved-model-item-state-submission-smoke.html",
+    expected: "PASS: Sequenced resolved model-item state re-enters the worker patch flow.",
+    name: "Resolved model-item state submission harness"
+  },
+  {
     url: "http://127.0.0.1:4173/tests/constrained-recalculation-smoke.html",
     expected: "PASS: Constrained browser-model recalculation submits calculated patches after source intents.",
     name: "Constrained recalculation harness"

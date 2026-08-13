@@ -146,6 +146,25 @@ function validateCalculatedValues(message) {
   });
 }
 
+function validateResolvedModelItemState(message) {
+  if (!Number.isSafeInteger(message.originSequence) || message.originSequence < 0) {
+    throw new Error("resolved-model-item-state.originSequence must be a non-negative safe integer.");
+  }
+  const entries = message.entries;
+  if (!Array.isArray(entries) || entries.length === 0) throw new Error("resolved-model-item-state.entries must be a non-empty array.");
+  const seen = new Set();
+  return entries.map((entry, index) => {
+    const nodeId = validNodeId(entry?.nodeId, Number.MAX_SAFE_INTEGER, `resolved-model-item-state.entries[${index}].nodeId`);
+    if (seen.has(nodeId)) throw new Error(`resolved-model-item-state.entries contains duplicate node ${nodeId}.`);
+    seen.add(nodeId);
+    const flags = entry?.flags;
+    if (!Number.isSafeInteger(flags) || flags < 0 || flags > 0xffffffff || (flags & ~MODEL_ITEM_FLAGS_ALL) !== 0) {
+      throw new Error(`resolved-model-item-state.entries[${index}].flags contains invalid or reserved bits.`);
+    }
+    return { nodeId, flags };
+  });
+}
+
 function simplePathTargets(path, contextNodes) {
   const pathBytes = textEncoder.encode(path);
   const contextBytes = contextNodes.length * Uint32Array.BYTES_PER_ELEMENT;
@@ -365,6 +384,19 @@ self.onmessage = async (event) => {
         nodeIds,
         projections: projectNodes(nodeIds)
       });
+      return;
+    }
+    if (message.kind === "resolved-model-item-state") {
+      assertEngine();
+      const sequence = message.sequence >>> 0;
+      if (sequence <= lastSequence) return;
+      const entries = validateResolvedModelItemState(message);
+      if (message.originSequence !== lastSequence) {
+        throw new Error(`Resolved model-item state originates from sequence ${message.originSequence}, but worker is at sequence ${lastSequence}.`);
+      }
+      lastSequence = sequence;
+      for (const entry of entries) setModelItemFlags(entry.nodeId, entry.flags);
+      update(sequence);
       return;
     }
     if (message.kind === "calculated-values") {

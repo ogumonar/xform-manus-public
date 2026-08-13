@@ -117,6 +117,7 @@
             <li>Opt-in initial bind calculations and model-item projections applied during worker hydration.</li>
             <li>Conservative static compact-ID dependency extraction with explicit unsupported-reference diagnostics.</li>
             <li>Strict opt-in singleton calculated-binding recalculation after a source intent.</li>
+            <li>Strict opt-in singleton relevant/readonly/required/valid state updates after a source intent.</li>
             <li>Accessible input, choice, activation, and container components.</li>
             <li>Opt-in static XForms-markup adaptation for an early presentation subset.</li>
           </ul>
@@ -142,6 +143,8 @@
           <a class="lab-link" href="tests/simple-path-query-smoke.html"><strong>Simple path query</strong><span>Strict absolute and relative compact-instance path targets with diagnostics.</span></a>
           <a class="lab-link" href="tests/discovery-worker-hydration-smoke.html"><strong>Discovered model</strong><span>One inline <code>xf:model</code> discovered and hydrated through the worker.</span></a>
           <a class="lab-link" href="tests/inline-instance-worker-smoke.html"><strong>Inline XML worker</strong><span>Parsed XML topology, projection overlays, and full first patches.</span></a>
+          <a class="lab-link" href="tests/constrained-model-item-state-recalculation-smoke.html"><strong>Constrained model-item state</strong><span>Diagnostic-free singleton relevant-state evaluation updates worker-owned component flags after a source intent.</span></a>
+          <a class="lab-link" href="tests/resolved-model-item-state-submission-smoke.html"><strong>Resolved state submission</strong><span>Origin-sequenced flags re-enter the authoritative worker patch path.</span></a>
           <a class="lab-link" href="tests/constrained-recalculation-smoke.html"><strong>Constrained recalculation</strong><span>Diagnostic-free singleton calculated bindings update after a source intent through the worker.</span></a>
           <a class="lab-link" href="tests/calculated-value-submission-smoke.html"><strong>Calculated value submission</strong><span>Origin-sequenced calculated scalars re-enter the authoritative worker patch path.</span></a>
           <a class="lab-link" href="tests/static-dependency-extractor-smoke.html"><strong>Static dependencies</strong><span>Proven supported XPath references become compact edges; dynamic forms emit diagnostics.</span></a>
@@ -159,7 +162,7 @@
 
       <section class="scope">
         <strong>Scope statement</strong>
-        <p>This site demonstrates an active modernization effort, not a complete XForms 1.1 processor. Inline XML base-state hydration, a compatibility gate, opt-in exact-one strict child-path <code>ref</code> association, discovered bind-target mapping, and opt-in initial calculated/property projections under singleton parent contexts are implemented; general dependency-driven post-intent recalculation, repeat context, actions, submissions, and separately scoped native XPath 2.x / XForms 2.0 semantics remain implementation work; the demonstrated singleton calculated-binding subset is intentionally narrower.</p>
+        <p>This site demonstrates an active modernization effort, not a complete XForms 1.1 processor. Inline XML base-state hydration, a compatibility gate, opt-in exact-one strict child-path <code>ref</code> association, discovered bind-target mapping, and opt-in initial calculated/property projections under singleton parent contexts are implemented; general dependency-driven post-intent recalculation and revalidation, repeat context, actions, submissions, and separately scoped native XPath 2.x / XForms 2.0 semantics remain implementation work; the demonstrated singleton calculated/value-state subsets are intentionally narrower.</p>
       </section>
     </main>
     <footer>Built from the public demo repository. Browser behavior is exercised in real headless Chromium before publication.</footer>
