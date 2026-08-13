@@ -447,6 +447,7 @@
       const configuredNodeCount = Number(this.getAttribute("node-count") || 0);
       const discoveredModel = this.hasAttribute("discover-model") ? discoverInlineModel(this, configuredNodeCount) : null;
       const discoveredInstance = discoveredModel?.instance ?? null;
+      if (this.hasAttribute("project-repeats")) projectDiscoveredRepeats(discoveredModel, this);
       const nodeCount = discoveredInstance?.nodeCount ?? configuredNodeCount;
       const explicitDependencies = parseDependencies(this.getAttribute("dependencies"));
       const dependencies = mergeDependencies(explicitDependencies, this.hasAttribute("register-static-dependencies")
@@ -613,6 +614,26 @@
   function mergeHydrationProjections(generated, explicit) {
     const explicitNodeIds = new Set(explicit.map((entry) => entry?.nodeId));
     return [...generated.filter((entry) => !explicitNodeIds.has(entry.nodeId)), ...explicit];
+  }
+
+  function projectDiscoveredRepeats(discoveredModel, host) {
+    if (!discoveredModel) throw new Error("<xforms-host project-repeats> requires discover-model and one inline xf:instance.");
+    if (!root.XFormsDiscoveredRepeatProjector?.project) {
+      throw new Error("Load xforms-discovered-repeat-projector.js before using <xforms-host project-repeats>.");
+    }
+    for (const repeat of host.querySelectorAll("xforms-repeat[bind-id]")) {
+      try {
+        repeat.setControlState(root.XFormsDiscoveredRepeatProjector.project({
+          inlineInstanceXml: discoveredModel.instance.xml,
+          bindings: discoveredModel.bindings,
+          bindId: repeat.getAttribute("bind-id")
+        }));
+      } catch (error) {
+        host.dispatchEvent(new CustomEvent("xforms-repeat-projection-diagnostic", {
+          detail: { repeat, bindId: repeat.getAttribute("bind-id"), code: error.code || "repeat-projection-failed", message: error.message }, bubbles: true, composed: true
+        }));
+      }
+    }
   }
 
   function createConstrainedRecalculator(discoveredModel, host) {

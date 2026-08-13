@@ -38,6 +38,11 @@ const checks = [
     name: "Inline instance worker hydration harness"
   },
   {
+    url: "http://127.0.0.1:4173/tests/discovered-repeat-projection-smoke.html",
+    expected: "PASS: Discovered collection binding projects keyed repeat occurrences without component XML ownership.",
+    name: "Discovered repeat projection harness"
+  },
+  {
     url: "http://127.0.0.1:4173/tests/repeat-component-smoke.html",
     expected: "PASS: Keyed repeat projection preserves occurrences and emits one-based index events.",
     name: "Repeat component harness"
