@@ -344,6 +344,73 @@
     }
   }
 
+  class XFormsRepeat extends XFormsControlElement {
+    static get observedAttributes() {
+      return [...super.observedAttributes, "repeat-id"];
+    }
+
+    constructor() {
+      super();
+      this.occurrences = new Map();
+    }
+
+    get repeatId() {
+      return this.getAttribute("repeat-id") || this.id || this.controlId;
+    }
+
+    render() {
+      this.hidden = !this.isRelevant;
+      const items = Array.isArray(this.state.items) ? this.state.items : [];
+      let container = this.shadowRoot.querySelector("[part=repeat]");
+      if (!container) {
+        this.shadowRoot.innerHTML = `${this.style()}<section part="repeat" role="list"></section>`;
+        container = this.shadowRoot.querySelector("[part=repeat]");
+      }
+      const template = this.querySelector(":scope > template");
+      const desired = new Set();
+      items.forEach((item, offset) => {
+        const key = String(item?.key ?? offset + 1);
+        desired.add(key);
+        let occurrence = this.occurrences.get(key);
+        if (!occurrence) {
+          occurrence = document.createElement("article");
+          occurrence.setAttribute("part", "occurrence");
+          occurrence.setAttribute("role", "listitem");
+          occurrence.addEventListener("click", () => this.selectOccurrence(key));
+          if (template) occurrence.append(template.content.cloneNode(true));
+          else occurrence.append(document.createElement("span"));
+          this.occurrences.set(key, occurrence);
+        }
+        occurrence.dataset.repeatKey = key;
+        occurrence.dataset.repeatIndex = String(offset + 1);
+        occurrence.setAttribute("aria-current", String(this.state.repeatIndex === offset + 1));
+        occurrence.tabIndex = this.state.repeatIndex === offset + 1 ? 0 : -1;
+        if (!template) occurrence.firstElementChild.textContent = String(item?.label ?? item?.value ?? key);
+        container.append(occurrence);
+      });
+      for (const [key, occurrence] of this.occurrences) {
+        if (!desired.has(key)) {
+          occurrence.remove();
+          this.occurrences.delete(key);
+        }
+      }
+    }
+
+    selectOccurrence(key) {
+      const occurrence = this.occurrences.get(key);
+      const repeatIndex = Number(occurrence?.dataset.repeatIndex || 0);
+      if (!Number.isSafeInteger(repeatIndex) || repeatIndex < 1) return;
+      this.setControlState({ repeatIndex });
+      this.dispatchEvent(new CustomEvent("xforms-repeat-index", {
+        detail: { repeatId: this.repeatId, repeatIndex, key }, bubbles: true, composed: true
+      }));
+    }
+
+    style() {
+      return `${super.style()}<style>[part=repeat]{display:grid;gap:.5rem}[part=occurrence]{cursor:pointer;padding:.5rem;border:1px solid color-mix(in srgb,CanvasText 20%,transparent);border-radius:.25rem}[part=occurrence][aria-current=true]{outline:2px solid Highlight;outline-offset:2px}</style>`;
+    }
+  }
+
   class XFormsHost extends HTMLElement {
     constructor() {
       super();
@@ -635,7 +702,8 @@
     "xforms-submit": XFormsSubmit,
     "xforms-group": XFormsGroup,
     "xforms-switch": XFormsSwitch,
-    "xforms-case": XFormsCase
+    "xforms-case": XFormsCase,
+    "xforms-repeat": XFormsRepeat
   };
   for (const [name, constructor] of Object.entries(definitions)) {
     if (!customElements.get(name)) customElements.define(name, constructor);
@@ -655,6 +723,7 @@
     XFormsSubmit,
     XFormsGroup,
     XFormsSwitch,
-    XFormsCase
+    XFormsCase,
+    XFormsRepeat
   });
 })();

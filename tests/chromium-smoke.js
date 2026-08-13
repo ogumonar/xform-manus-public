@@ -38,6 +38,11 @@ const checks = [
     name: "Inline instance worker hydration harness"
   },
   {
+    url: "http://127.0.0.1:4173/tests/repeat-component-smoke.html",
+    expected: "PASS: Keyed repeat projection preserves occurrences and emits one-based index events.",
+    name: "Repeat component harness"
+  },
+  {
     url: "http://127.0.0.1:4173/tests/constrained-model-item-state-recalculation-smoke.html",
     expected: "PASS: Constrained recalculation submits resolved model-item state after source intents.",
     name: "Constrained model-item state recalculation harness"
