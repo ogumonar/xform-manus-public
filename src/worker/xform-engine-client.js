@@ -42,6 +42,10 @@
       return this.request("intent", { intent });
     }
 
+    querySimplePath(path, contextNodes = []) {
+      return this.request("simple-path-query", { path, contextNodes });
+    }
+
     request(kind, body) {
       const sequence = ++this.sequence;
       this.worker.postMessage({ protocolVersion: PROTOCOL_VERSION, kind, sequence, ...body });

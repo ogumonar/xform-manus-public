@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>XForm Revival — simple path query smoke</title>
+  <script src="../src/worker/xform-engine-client.js"></script>
+  <style>body{font:16px/1.4 system-ui;margin:2rem}.pass{color:#146c2e;font-weight:700}.fail{color:#b42318;font-weight:700}</style>
+</head>
+<body>
+  <h1>Simple path worker query harness</h1>
+  <p id="result">Running…</p>
+  <script>
+    (() => {
+      "use strict";
+      const result = document.querySelector("#result");
+      const client = new XFormRevival.XFormEngineClient({ onDiagnostic: () => {} });
+      let stage = "absolute";
+      function fail(error) {
+        client.dispose();
+        result.className = "fail";
+        result.textContent = `FAIL: ${error.message}`;
+        document.title = "XForm Revival — simple path query FAIL";
+      }
+      client.addEventListener("simple-path-result", ({detail}) => {
+        try {
+          if (stage === "absolute") {
+            if (detail.path !== "/data/person/name" || detail.nodeIds.join(",") !== "2,4") {
+              throw new Error(`Absolute path result is incorrect: ${JSON.stringify(detail)}.`);
+            }
+            stage = "context";
+            client.querySimplePath("name", [1]);
+            return;
+          }
+          if (stage === "context") {
+            if (detail.path !== "name" || detail.nodeIds.join(",") !== "2") {
+              throw new Error(`Parent-context path result is incorrect: ${JSON.stringify(detail)}.`);
+            }
+            stage = "invalid";
+            client.querySimplePath("/data/person[1]");
+          }
+        } catch (error) {
+          fail(error);
+        }
+      });
+      client.addEventListener("diagnostic", ({detail}) => {
+        if (stage !== "invalid") return fail(new Error(`Unexpected diagnostic: ${JSON.stringify(detail)}.`));
+        if (detail.code !== "worker-error" || !detail.message.includes("-7")) {
+          return fail(new Error(`Unsupported-path diagnostic is incorrect: ${JSON.stringify(detail)}.`));
+        }
+        client.dispose();
+        result.className = "pass";
+        result.textContent = "PASS: Worker resolves strict simple paths over hydrated inline XML.";
+        document.title = "XForm Revival — simple path query PASS";
+      });
+      client.addEventListener("hydrated", () => client.querySimplePath("/data/person/name"), { once: true });
+      client.hydrate({
+        nodeCount: 5,
+        dependencies: [],
+        inlineInstanceXml: "<data><person><name>Ada</name></person><person><name>Grace</name></person></data>"
+      });
+    })();
+  </script>
+</body>
+</html>

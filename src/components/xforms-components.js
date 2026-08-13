@@ -15,6 +15,10 @@
     "xforms-output", "xforms-select", "xforms-select1", "xforms-trigger", "xforms-submit",
     "xforms-group", "xforms-switch", "xforms-case"
   ].join(",");
+  const REF_CONTROL_SELECTOR = [
+    "xforms-input", "xforms-secret", "xforms-textarea", "xforms-range",
+    "xforms-output", "xforms-select", "xforms-select1"
+  ].join(",");
 
   const DEFAULT_STATE = Object.freeze({
     value: "",
@@ -346,6 +350,7 @@
       this.engineClient = null;
       this.componentObserver = null;
       this.hydrationQueued = false;
+      this.pendingControlRefBindings = new Map();
     }
 
     connectedCallback() {
@@ -364,8 +369,11 @@
         onDiagnostic: (...args) => this.dispatchEvent(new CustomEvent("xforms-diagnostic", { detail: args, bubbles: true, composed: true }))
       });
       this.engineClient.addEventListener("hydrated", (event) => {
+        this.resolveDescendantControlRefs();
         this.dispatchEvent(new CustomEvent("xforms-ready", { detail: event.detail, bubbles: true, composed: true }));
       });
+      this.engineClient.addEventListener("simple-path-result", (event) => this.applyControlRefResult(event.detail));
+      this.engineClient.addEventListener("diagnostic", (event) => this.applyControlRefDiagnostic(event.detail));
       this.bindDescendantComponents();
       this.observeDescendantComponents();
       const configuredNodeCount = Number(this.getAttribute("node-count") || 0);
@@ -387,6 +395,7 @@
       this.componentObserver?.disconnect();
       this.componentObserver = null;
       this.hydrationQueued = false;
+      this.pendingControlRefBindings.clear();
       for (const component of this.querySelectorAll(CONTROL_SELECTOR)) component.bindClient?.(null);
       this.engineClient?.dispose();
       this.engineClient = null;
@@ -394,6 +403,65 @@
 
     bindDescendantComponents() {
       for (const component of this.querySelectorAll(CONTROL_SELECTOR)) component.bindClient?.(this.engineClient);
+    }
+
+    isAutoControlBindingEnabled() {
+      return this.hasAttribute("discover-model") && this.hasAttribute("bind-controls");
+    }
+
+    resolveDescendantControlRefs() {
+      if (!this.isAutoControlBindingEnabled()) return;
+      for (const component of this.querySelectorAll(REF_CONTROL_SELECTOR)) this.requestControlRefBinding(component);
+    }
+
+    requestControlRefBinding(component) {
+      if (!this.isAutoControlBindingEnabled() || !this.engineClient || !component?.matches?.(REF_CONTROL_SELECTOR)) return;
+      if (component.hasAttribute("node-id")) return;
+      const ref = component.getAttribute("ref")?.trim();
+      if (!ref || Array.from(this.pendingControlRefBindings.values()).some((pending) => pending.component === component)) return;
+      const sequence = this.engineClient.querySimplePath(ref);
+      this.pendingControlRefBindings.set(sequence, { component, ref });
+    }
+
+    applyControlRefResult(message) {
+      const pending = this.pendingControlRefBindings.get(message.sequence);
+      if (!pending) return;
+      this.pendingControlRefBindings.delete(message.sequence);
+      const { component, ref } = pending;
+      if (!component.isConnected || component.closest("xforms-host") !== this || component.hasAttribute("node-id") || component.getAttribute("ref")?.trim() !== ref) return;
+      const nodeIds = Array.isArray(message.nodeIds) ? message.nodeIds : [];
+      if (nodeIds.length !== 1 || !Number.isSafeInteger(nodeIds[0]) || nodeIds[0] < 0) {
+        this.dispatchControlBindingDiagnostic(component, ref, "ambiguous-control-ref", `Control ref '${ref}' resolved to ${nodeIds.length} nodes; exactly one target is required.`);
+        return;
+      }
+      const nodeId = nodeIds[0];
+      const projection = Array.isArray(message.projections)
+        ? message.projections.find((candidate) => candidate?.nodeId === nodeId)
+        : null;
+      if (!projection?.state || !Number.isSafeInteger(projection.version)) {
+        this.dispatchControlBindingDiagnostic(component, ref, "missing-control-projection", `Control ref '${ref}' resolved to node ${nodeId} without a valid immutable projection.`);
+        return;
+      }
+      component.setAttribute("node-id", String(nodeId));
+      component.bindClient(this.engineClient);
+      component.applyEnginePatch(projection);
+      this.dispatchEvent(new CustomEvent("xforms-control-bound", {
+        detail: { component, controlId: component.controlId, ref, nodeId }, bubbles: true, composed: true
+      }));
+    }
+
+    applyControlRefDiagnostic(message) {
+      const pending = this.pendingControlRefBindings.get(message?.sequence);
+      if (!pending) return;
+      this.pendingControlRefBindings.delete(message.sequence);
+      const { component, ref } = pending;
+      this.dispatchControlBindingDiagnostic(component, ref, message.code || "control-ref-query-failed", message.message || `Control ref '${ref}' could not be resolved.`);
+    }
+
+    dispatchControlBindingDiagnostic(component, ref, code, message) {
+      this.dispatchEvent(new CustomEvent("xforms-control-binding-diagnostic", {
+        detail: { component, controlId: component.controlId, ref, code, message }, bubbles: true, composed: true
+      }));
     }
 
     observeDescendantComponents() {
@@ -408,8 +476,12 @@
 
     bindControlsWithin(node) {
       if (node.nodeType !== Node.ELEMENT_NODE) return;
-      if (node.matches?.(CONTROL_SELECTOR)) node.bindClient?.(this.engineClient);
-      for (const component of node.querySelectorAll?.(CONTROL_SELECTOR) || []) component.bindClient?.(this.engineClient);
+      const components = [
+        ...(node.matches?.(CONTROL_SELECTOR) ? [node] : []),
+        ...(node.querySelectorAll?.(CONTROL_SELECTOR) || [])
+      ];
+      for (const component of components) component.bindClient?.(this.engineClient);
+      for (const component of components) this.requestControlRefBinding(component);
     }
   }
 

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>XForm Revival — automatic control ref binding smoke</title>
+  <script src="../src/xpath/xpath-compatibility.js"></script>
+  <script src="../src/adapter/xforms-model-discovery.js"></script>
+  <script src="../src/worker/xform-engine-client.js"></script>
+  <script src="../src/components/xforms-components.js"></script>
+  <style>body{font:16px/1.4 system-ui;margin:2rem}.pass{color:#146c2e;font-weight:700}.fail{color:#b42318;font-weight:700}</style>
+</head>
+<body>
+  <h1>Automatic control <code>ref</code> binding harness</h1>
+  <xforms-host id="host" discover-model bind-controls>
+    <xf:model id="contact-model">
+      <xf:instance id="contact-instance"><data><person><primary>Ada</primary></person><person><primary>Grace</primary></person><single>Lin</single></data></xf:instance>
+    </xf:model>
+    <xforms-input id="automatic" ref="/data/single" label="Single value"></xforms-input>
+    <xforms-output id="ambiguous" ref="/data/person/primary" label="Ambiguous value"></xforms-output>
+  </xforms-host>
+  <p id="result">Running…</p>
+  <script>
+    (() => {
+      "use strict";
+      const host = document.querySelector("#host");
+      const automatic = document.querySelector("#automatic");
+      const ambiguous = document.querySelector("#ambiguous");
+      const result = document.querySelector("#result");
+      let bound = false;
+      let diagnosed = false;
+      let updated = false;
+      let completed = false;
+
+      function fail(error) {
+        if (completed) return;
+        completed = true;
+        result.className = "fail";
+        result.textContent = `FAIL: ${error.message}`;
+        document.title = "XForm Revival — automatic control ref binding FAIL";
+      }
+
+      function passIfComplete() {
+        if (completed || !bound || !diagnosed || !updated) return;
+        completed = true;
+        result.className = "pass";
+        result.textContent = "PASS: xforms-host binds eligible unambiguous control refs through the worker.";
+        document.title = "XForm Revival — automatic control ref binding PASS";
+      }
+
+      host.addEventListener("xforms-diagnostic", ({ detail }) => fail(new Error(detail.join(" "))));
+      host.addEventListener("xforms-control-bound", ({ detail }) => {
+        try {
+          if (detail.component !== automatic || detail.ref !== "/data/single" || detail.nodeId !== 5) {
+            throw new Error(`Unexpected automatic binding: ${JSON.stringify({ ref: detail.ref, nodeId: detail.nodeId })}.`);
+          }
+          if (automatic.getAttribute("node-id") !== "5") throw new Error("Automatic binding did not assign the resolved node ID.");
+          const input = automatic.shadowRoot.querySelector("input");
+          if (!input || input.value !== "Lin") throw new Error("Automatic binding did not apply the immutable initial node projection.");
+          if (host.engineClient.components.get(5) !== automatic) throw new Error("Automatic binding did not register the component with the worker client.");
+          bound = true;
+          host.engineClient.addEventListener("patches", ({ detail: patchMessage }) => {
+            try {
+              const changed = patchMessage.patches.find((patch) => patch.nodeId === 5);
+              if (!changed || changed.state?.value !== "Mira") throw new Error("Set-value did not round-trip through the automatically bound control.");
+              if (automatic.shadowRoot.querySelector("input").value !== "Mira") throw new Error("Automatically bound control did not render its returned patch.");
+              updated = true;
+              passIfComplete();
+            } catch (error) {
+              fail(error);
+            }
+          }, { once: true });
+          input.value = "Mira";
+          input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+        } catch (error) {
+          fail(error);
+        }
+      });
+      host.addEventListener("xforms-control-binding-diagnostic", ({ detail }) => {
+        try {
+          if (detail.component !== ambiguous || detail.ref !== "/data/person/primary" || detail.code !== "ambiguous-control-ref") {
+            throw new Error(`Unexpected control-ref diagnostic: ${JSON.stringify({ ref: detail.ref, code: detail.code })}.`);
+          }
+          if (ambiguous.hasAttribute("node-id")) throw new Error("An ambiguous control ref must not receive a node ID.");
+          diagnosed = true;
+          passIfComplete();
+        } catch (error) {
+          fail(error);
+        }
+      });
+      setTimeout(() => fail(new Error("Timed out waiting for automatic control-ref binding events.")), 4000);
+    })();
+  </script>
+</body>
+</html>

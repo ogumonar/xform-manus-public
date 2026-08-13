@@ -14,8 +14,18 @@ const browser = process.env.CHROMIUM_BIN || "chromium";
 const checks = [
   {
     url: "http://127.0.0.1:4173/",
-    expected: "Live discovered-model control",
-    name: "Public discovered-model landing page"
+    expected: "Live automatically ref-bound control",
+    name: "Public automatic-ref landing page"
+  },
+  {
+    url: "http://127.0.0.1:4173/tests/auto-control-ref-binding-smoke.html",
+    expected: "PASS: xforms-host binds eligible unambiguous control refs through the worker.",
+    name: "Automatic control-ref binding harness"
+  },
+  {
+    url: "http://127.0.0.1:4173/tests/simple-path-query-smoke.html",
+    expected: "PASS: Worker resolves strict simple paths over hydrated inline XML.",
+    name: "Simple path worker query harness"
   },
   {
     url: "http://127.0.0.1:4173/tests/discovery-worker-hydration-smoke.html",

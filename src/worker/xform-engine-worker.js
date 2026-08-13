@@ -24,7 +24,8 @@ async function boot() {
     "memory", "xfr_engine_create", "xfr_engine_destroy", "xfr_alloc", "xfr_dealloc",
     "xfr_engine_set_value", "xfr_engine_value_length", "xfr_engine_copy_value",
     "xfr_engine_set_model_item_flags", "xfr_engine_model_item_flags",
-    "xfr_engine_hydrate_inline_instance", "xfr_engine_instance_node_count"
+    "xfr_engine_hydrate_inline_instance", "xfr_engine_instance_node_count",
+    "xfr_engine_simple_path_count", "xfr_engine_copy_simple_path"
   ];
   if (!requiredExports.every((name) => wasm[name])) throw new Error("Wasm engine exports are incomplete.");
   return wasm;
@@ -114,6 +115,61 @@ function validateHydration(message) {
   return { nodeCount, dependencies, initialValues, initialModelItemFlags, inlineInstanceXml };
 }
 
+function validateSimplePathQuery(message) {
+  if (typeof message.path !== "string") throw new Error("simple-path-query.path must be a string.");
+  const contextNodes = message.contextNodes ?? [];
+  if (!Array.isArray(contextNodes)) throw new Error("simple-path-query.contextNodes must be an array.");
+  return {
+    path: message.path,
+    contextNodes: contextNodes.map((nodeId, index) => {
+      if (!Number.isSafeInteger(nodeId) || nodeId < 0 || nodeId > 0xffffffff) {
+        throw new Error(`simple-path-query.contextNodes[${index}] must be a u32 integer.`);
+      }
+      return nodeId;
+    })
+  };
+}
+
+function simplePathTargets(path, contextNodes) {
+  const pathBytes = textEncoder.encode(path);
+  const contextBytes = contextNodes.length * Uint32Array.BYTES_PER_ELEMENT;
+  const pathPointer = pathBytes.byteLength === 0 ? 0 : wasm.xfr_alloc(pathBytes.byteLength);
+  const contextPointer = contextBytes === 0 ? 0 : wasm.xfr_alloc(contextBytes);
+  try {
+    if (pathBytes.byteLength) new Uint8Array(wasm.memory.buffer, pathPointer, pathBytes.byteLength).set(pathBytes);
+    if (contextBytes) new Uint32Array(wasm.memory.buffer, contextPointer, contextNodes.length).set(contextNodes);
+    const count = wasm.xfr_engine_simple_path_count(
+      engine,
+      pathPointer,
+      pathBytes.byteLength,
+      contextPointer,
+      contextNodes.length
+    );
+    if (count < 0) throw new Error(`Unable to resolve simple path: ${count}.`);
+    if (count === 0) return [];
+    const outputBytes = count * Uint32Array.BYTES_PER_ELEMENT;
+    const outputPointer = wasm.xfr_alloc(outputBytes);
+    try {
+      const copied = wasm.xfr_engine_copy_simple_path(
+        engine,
+        pathPointer,
+        pathBytes.byteLength,
+        contextPointer,
+        contextNodes.length,
+        outputPointer,
+        count
+      );
+      if (copied !== count) throw new Error(`Unable to copy simple path targets: ${copied}.`);
+      return Array.from(new Uint32Array(wasm.memory.buffer, outputPointer, count));
+    } finally {
+      wasm.xfr_dealloc(outputPointer, outputBytes);
+    }
+  } finally {
+    if (contextBytes) wasm.xfr_dealloc(contextPointer, contextBytes);
+    if (pathBytes.byteLength) wasm.xfr_dealloc(pathPointer, pathBytes.byteLength);
+  }
+}
+
 function hydrateInlineInstance(xml) {
   const bytes = textEncoder.encode(xml);
   const pointer = bytes.byteLength === 0 ? 0 : wasm.xfr_alloc(bytes.byteLength);
@@ -127,12 +183,16 @@ function hydrateInlineInstance(xml) {
   }
 }
 
-function initialInstancePatches(nodeCount) {
-  return Array.from({ length: nodeCount }, (_, nodeId) => ({
+function projectNodes(nodeIds) {
+  return nodeIds.map((nodeId) => ({
     nodeId,
     version: wasm.xfr_engine_node_version(engine, nodeId),
     state: { value: readValue(nodeId), ...modelItemState(nodeId) }
   }));
+}
+
+function initialInstancePatches(nodeCount) {
+  return projectNodes(Array.from({ length: nodeCount }, (_, nodeId) => nodeId));
 }
 
 function setValue(nodeId, value) {
@@ -276,6 +336,19 @@ self.onmessage = async (event) => {
           }
         });
       }
+      return;
+    }
+    if (message.kind === "simple-path-query") {
+      assertEngine();
+      const query = validateSimplePathQuery(message);
+      const nodeIds = simplePathTargets(query.path, query.contextNodes);
+      postProtocolMessage({
+        kind: "simple-path-result",
+        sequence: message.sequence >>> 0,
+        path: query.path,
+        nodeIds,
+        projections: projectNodes(nodeIds)
+      });
       return;
     }
     if (message.kind === "intent") {
