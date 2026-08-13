@@ -38,6 +38,11 @@ const checks = [
     name: "Inline instance worker hydration harness"
   },
   {
+    url: "http://127.0.0.1:4173/tests/constrained-setindex-action-smoke.html",
+    expected: "PASS: Direct setindex actions update one projected repeat index without worker mutation.",
+    name: "Constrained setindex action harness"
+  },
+  {
     url: "http://127.0.0.1:4173/tests/constrained-setvalue-action-smoke.html",
     expected: "PASS: Direct trigger setvalue actions resolve one target and mutate through the worker.",
     name: "Constrained setvalue action harness"

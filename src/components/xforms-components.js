@@ -419,6 +419,7 @@
       this.hydrationQueued = false;
       this.pendingControlRefBindings = new Map();
       this.actionBridge = null;
+      this.setIndexActionBridge = null;
     }
 
     connectedCallback() {
@@ -449,6 +450,7 @@
       const discoveredModel = this.hasAttribute("discover-model") ? discoverInlineModel(this, configuredNodeCount) : null;
       const discoveredInstance = discoveredModel?.instance ?? null;
       if (this.hasAttribute("enable-setvalue-actions")) this.actionBridge = createSetValueActionBridge(discoveredModel, this, this.engineClient);
+      if (this.hasAttribute("enable-setindex-actions")) this.setIndexActionBridge = createSetIndexActionBridge(this);
       if (this.hasAttribute("project-repeats")) projectDiscoveredRepeats(discoveredModel, this);
       const nodeCount = discoveredInstance?.nodeCount ?? configuredNodeCount;
       const explicitDependencies = parseDependencies(this.getAttribute("dependencies"));
@@ -479,6 +481,8 @@
       this.pendingControlRefBindings.clear();
       this.actionBridge?.dispose();
       this.actionBridge = null;
+      this.setIndexActionBridge?.dispose();
+      this.setIndexActionBridge = null;
       for (const component of this.querySelectorAll(CONTROL_SELECTOR)) component.bindClient?.(null);
       this.engineClient?.dispose();
       this.engineClient = null;
@@ -618,6 +622,13 @@
   function mergeHydrationProjections(generated, explicit) {
     const explicitNodeIds = new Set(explicit.map((entry) => entry?.nodeId));
     return [...generated.filter((entry) => !explicitNodeIds.has(entry.nodeId)), ...explicit];
+  }
+
+  function createSetIndexActionBridge(host) {
+    if (!root.XFormsSetIndexActionBridge?.create) {
+      throw new Error("Load xforms-setindex-action-bridge.js before using <xforms-host enable-setindex-actions>.");
+    }
+    return root.XFormsSetIndexActionBridge.create({ host });
   }
 
   function createSetValueActionBridge(discoveredModel, host, client) {

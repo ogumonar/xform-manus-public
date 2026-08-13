@@ -120,7 +120,8 @@
             <li>Strict opt-in singleton relevant/readonly/required/valid state updates after a source intent.</li>
             <li>Keyed repeat presentation with stable occurrence identity and one-based index events.</li>
             <li>Opt-in discovered top-level collection projection into keyed repeat occurrences.</li>
-            <li>Opt-in direct literal <code>xf:setvalue</code> actions routed through the worker.</li>
+            <li>Opt-in direct XPath-valued <code>xf:setvalue</code> actions routed through the worker.</li>
+            <li>Opt-in direct <code>xf:setindex</code> actions that update projected repeat selection.</li>
             <li>Accessible input, choice, activation, and container components.</li>
             <li>Opt-in static XForms-markup adaptation for an early presentation subset.</li>
           </ul>
@@ -146,7 +147,8 @@
           <a class="lab-link" href="tests/simple-path-query-smoke.html"><strong>Simple path query</strong><span>Strict absolute and relative compact-instance path targets with diagnostics.</span></a>
           <a class="lab-link" href="tests/discovery-worker-hydration-smoke.html"><strong>Discovered model</strong><span>One inline <code>xf:model</code> discovered and hydrated through the worker.</span></a>
           <a class="lab-link" href="tests/inline-instance-worker-smoke.html"><strong>Inline XML worker</strong><span>Parsed XML topology, projection overlays, and full first patches.</span></a>
-          <a class="lab-link" href="tests/constrained-setvalue-action-smoke.html"><strong>Direct setvalue action</strong><span>A matched trigger discovers one literal setvalue action and routes the single target through the worker.</span></a>
+          <a class="lab-link" href="tests/constrained-setindex-action-smoke.html"><strong>Direct setindex action</strong><span>A matched trigger selects one projected repeat occurrence without XML or worker mutation.</span></a>
+          <a class="lab-link" href="tests/constrained-setvalue-action-smoke.html"><strong>Direct setvalue action</strong><span>A matched trigger evaluates one namespace-aware XPath scalar and routes the single target through the worker.</span></a>
           <a class="lab-link" href="tests/discovered-repeat-projection-smoke.html"><strong>Discovered repeat projection</strong><span>A top-level discovered collection bind projects compact keyed occurrence data without component XML ownership.</span></a>
           <a class="lab-link" href="tests/repeat-component-smoke.html"><strong>Keyed repeat</strong><span>Stable keyed occurrence reconciliation, template cloning, and one-based index events without XML ownership.</span></a>
           <a class="lab-link" href="tests/constrained-model-item-state-recalculation-smoke.html"><strong>Constrained model-item state</strong><span>Diagnostic-free singleton relevant-state evaluation updates worker-owned component flags after a source intent.</span></a>
@@ -168,7 +170,7 @@
 
       <section class="scope">
         <strong>Scope statement</strong>
-        <p>This site demonstrates an active modernization effort, not a complete XForms 1.1 processor. Inline XML base-state hydration, a compatibility gate, opt-in exact-one strict child-path <code>ref</code> association, discovered bind-target mapping, and opt-in initial calculated/property projections under singleton parent contexts are implemented; general dependency-driven post-intent recalculation and revalidation, repeat binding context, nested/dynamic repeats, general action/event processing, submissions, and separately scoped native XPath 2.x / XForms 2.0 semantics remain implementation work; the demonstrated singleton calculated/value-state and top-level keyed repeat projection subsets are intentionally narrower.</p>
+        <p>This site demonstrates an active modernization effort, not a complete XForms 1.1 processor. Inline XML base-state hydration, a compatibility gate, opt-in exact-one strict child-path <code>ref</code> association, discovered bind-target mapping, and opt-in initial calculated/property projections under singleton parent contexts are implemented; general dependency-driven post-intent recalculation and revalidation, repeat binding context, nested/dynamic repeats, general action/event processing, model-level repeat index semantics, submissions, and separately scoped native XPath 2.x / XForms 2.0 semantics remain implementation work; the demonstrated singleton calculated/value-state and top-level keyed repeat projection subsets are intentionally narrower.</p>
       </section>
     </main>
     <footer>Built from the public demo repository. Browser behavior is exercised in real headless Chromium before publication.</footer>
