@@ -85,9 +85,10 @@
         });
         assert(textIntent.value === "updated", "Textarea intent is malformed.");
 
-        const output = mount("xforms-output", { value: "<script>unsafe()</script>" });
+        const unsafeMarkup = "<script>unsafe()<\/script>";
+        const output = mount("xforms-output", { value: unsafeMarkup });
         const nativeOutput = output.shadowRoot.querySelector("output");
-        assert(nativeOutput.textContent === "<script>unsafe()</script>", "Output did not preserve text content.");
+        assert(nativeOutput.textContent === unsafeMarkup, "Output did not preserve text content.");
         assert(!nativeOutput.querySelector("script"), "Output treated projected text as markup.");
         [secret, textarea, output].forEach(remove);
       }
@@ -222,10 +223,12 @@
         await testHostRegistrationLifecycle();
         result.className = "pass";
         result.textContent = "PASS: Web Components project XForms control state and emit safe, typed intents.";
+        document.documentElement.dataset.harnessStatus = "pass";
         document.title = "XForm Revival — component PASS";
       } catch (error) {
         result.className = "fail";
         result.textContent = `FAIL: ${error.message}`;
+        document.documentElement.dataset.harnessStatus = "fail";
         document.title = "XForm Revival — component FAIL";
       }
     })();

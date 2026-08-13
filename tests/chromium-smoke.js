@@ -59,7 +59,7 @@ const checks = [
   },
   {
     url: "http://127.0.0.1:4173/tests/components-smoke.html",
-    expected: "PASS: Web Components project XForms control state and emit safe, typed intents.",
+    expected: 'data-harness-status="pass"',
     name: "Web Component harness"
   },
   {
