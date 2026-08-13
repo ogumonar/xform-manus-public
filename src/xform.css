@@ -1,0 +1,105 @@
+/* XForm Revival: minimal, host-friendly presentation for generated XForms views. */
+.xfr-model,
+xf\:model,
+model\[xmlns\:xf\],
+model\[xmlns\="http://www.w3.org/2002/xforms"\] {
+  display: none !important;
+}
+
+.xfr-control {
+  box-sizing: border-box;
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.55rem 0;
+  max-width: 44rem;
+}
+
+.xfr-control > label,
+.xfr-group > legend {
+  color: inherit;
+  font-weight: 600;
+}
+
+.xfr-control input,
+.xfr-control textarea,
+.xfr-control select,
+.xfr-control button {
+  box-sizing: border-box;
+  font: inherit;
+  max-width: 100%;
+}
+
+.xfr-control textarea {
+  min-height: 7rem;
+  resize: vertical;
+}
+
+.xfr-control input[type="range"] {
+  width: min(100%, 28rem);
+}
+
+.xfr-control[hidden],
+.xfr-irrelevant {
+  display: none !important;
+}
+
+.xfr-readonly input,
+.xfr-readonly textarea,
+.xfr-readonly select {
+  background: color-mix(in srgb, Canvas 92%, GrayText 8%);
+  cursor: not-allowed;
+}
+
+.xfr-invalid input,
+.xfr-invalid textarea,
+.xfr-invalid select {
+  border-color: #b42318;
+  outline-color: #b42318;
+}
+
+.xfr-alert {
+  color: #b42318;
+  font-size: 0.875em;
+}
+
+.xfr-hint {
+  color: color-mix(in srgb, CanvasText 68%, Canvas 32%);
+  font-size: 0.875em;
+}
+
+.xfr-output-value {
+  display: block;
+  min-height: 1.4em;
+  padding: 0.25rem 0;
+}
+
+.xfr-group {
+  border: 1px solid color-mix(in srgb, CanvasText 25%, Canvas 75%);
+  margin: 0.8rem 0;
+  padding: 0.75rem;
+}
+
+.xfr-switch > .xfr-case[hidden] {
+  display: none !important;
+}
+
+.xfr-repeat-item {
+  border-inline-start: 3px solid color-mix(in srgb, Highlight 45%, Canvas 55%);
+  margin: 0.5rem 0;
+  padding-inline-start: 0.75rem;
+}
+
+.xfr-status {
+  background: #fff8c5;
+  border: 1px solid #9a6700;
+  color: #24292f;
+  font: 13px/1.4 system-ui, sans-serif;
+  margin: 0.75rem 0;
+  max-width: 58rem;
+  padding: 0.65rem 0.8rem;
+}
+
+.xfr-status[data-level="error"] {
+  background: #ffebe9;
+  border-color: #cf222e;
+}

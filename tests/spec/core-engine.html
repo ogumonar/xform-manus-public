@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>XForm Revival — core engine conformance harness</title>
+  <style>
+    body { font: 16px/1.4 system-ui, sans-serif; margin: 2rem; }
+    #results { border-collapse: collapse; width: 100%; max-width: 58rem; }
+    th, td { border: 1px solid #999; padding: .45rem .65rem; text-align: left; }
+    .pass { color: #146c2e; font-weight: 700; }
+    .fail { color: #b42318; font-weight: 700; }
+    iframe { height: 1px; visibility: hidden; width: 1px; }
+  </style>
+</head>
+<body>
+  <h1>Core engine conformance harness</h1>
+  <p>This harness uses the source-mapped engine fixture and tests processing behaviors derived from W3C XForms 1.1 model, control, container, action, and update-sequence requirements.</p>
+  <table id="results"><thead><tr><th>Case</th><th>Result</th><th>Observed behavior</th></tr></thead><tbody></tbody></table>
+  <p id="summary">Running…</p>
+  <iframe id="fixture" src="../../fixtures/contact-form.html"></iframe>
+  <script>
+    (() => {
+      const tests = [];
+      const add = (name, run) => tests.push({ name, run });
+      const body = document.querySelector('#results tbody');
+      const fixture = document.querySelector('#fixture');
+
+      function assert(condition, detail) {
+        if (!condition) throw new Error(detail);
+        return detail;
+      }
+
+      add('Processor initialization', (doc) =>
+        assert(doc.documentElement.dataset.xformRevival === 'source-mapped-engine-ready', 'Source-mapped engine reached ready state.'));
+      add('Inline instance and bind resolution', (doc) =>
+        assert(doc.querySelector('#xfr-1').value === 'Ada', 'Bound input rendered the inline XML instance value.'));
+      add('Calculated bind on construct', (doc) =>
+        assert(doc.querySelector('#xfr-3').value === 'Hello, Ada!', 'Initial calculate property populated the output.'));
+      add('Dependency-driven recalculation', (doc) => {
+        const input = doc.querySelector('#xfr-1');
+        input.value = 'Grace';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        return assert(doc.querySelector('#xfr-3').value === 'Hello, Grace!', 'Input mutation propagated through the MDG and refreshed calculated output.');
+      });
+      add('Select1 control binding', (doc) =>
+        assert(doc.querySelector('#xfr-4').value === 'email', 'Select1 choice reflected the bound instance value.'));
+      add('Repeat rendering', (doc) =>
+        assert(doc.querySelectorAll('.xfr-repeat-item input').length === 2, 'Two nodeset items produced two independently rendered controls.'));
+      add('Toggle action', (doc) => {
+        doc.querySelector('#xfr-7').click();
+        return assert(!doc.querySelector('[data-xfr-case="confirmation"]').hidden, 'xf:toggle activated the requested case.');
+      });
+      add('Reset update sequence', (doc) => {
+        doc.querySelector('#xfr-8').click();
+        const restored = doc.querySelector('#xfr-1').value === 'Ada' && doc.querySelector('#xfr-3').value === 'Hello, Ada!';
+        return assert(restored, 'xf:reset restored the instance snapshot then recalculated and refreshed controls.');
+      });
+
+      fixture.addEventListener('load', () => {
+        setTimeout(() => {
+          const doc = fixture.contentDocument;
+          let passes = 0;
+          for (const test of tests) {
+            const row = document.createElement('tr');
+            const name = document.createElement('td'); name.textContent = test.name;
+            const result = document.createElement('td');
+            const detail = document.createElement('td');
+            try {
+              detail.textContent = test.run(doc);
+              result.textContent = 'PASS';
+              result.className = 'pass';
+              passes += 1;
+            } catch (error) {
+              result.textContent = 'FAIL';
+              result.className = 'fail';
+              detail.textContent = error.message;
+            }
+            row.append(name, result, detail);
+            body.append(row);
+          }
+          const summary = `${passes}/${tests.length} core cases passed`;
+          document.querySelector('#summary').textContent = summary;
+          document.title = `XForm Revival — ${summary}`;
+        }, 100);
+      }, { once: true });
+    })();
+  </script>
+</body>
+</html>

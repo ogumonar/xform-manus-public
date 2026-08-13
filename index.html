@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XForm Revival — Browser Demo</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: system-ui, sans-serif;
+      }
+      body {
+        max-width: 54rem;
+        margin: 0 auto;
+        padding: 4rem 1.5rem;
+        color: #172033;
+        background: #f7f9fc;
+      }
+      main {
+        padding: 2.5rem;
+        background: white;
+        border: 1px solid #d8e0ec;
+        border-radius: 1rem;
+        box-shadow: 0 1rem 3rem rgb(23 32 51 / 8%);
+      }
+      h1 {
+        margin-top: 0;
+        font-size: clamp(2rem, 5vw, 3.5rem);
+        letter-spacing: -0.04em;
+      }
+      p {
+        line-height: 1.7;
+      }
+      .button {
+        display: inline-block;
+        margin-top: 1rem;
+        padding: 0.8rem 1.1rem;
+        border-radius: 0.55rem;
+        color: white;
+        background: #155eef;
+        text-decoration: none;
+        font-weight: 700;
+      }
+      .button:hover,
+      .button:focus {
+        background: #004eeb;
+      }
+      code {
+        padding: 0.15rem 0.3rem;
+        border-radius: 0.25rem;
+        background: #eef2f8;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p><strong>XForm Revival</strong></p>
+      <h1>Rust/WebAssembly browser demo</h1>
+      <p>
+        This public harness demonstrates a Rust/WebAssembly XForms
+        dependency-graph worker running in a modern browser. A source mutation
+        is propagated through a four-node graph and verified in the page.
+      </p>
+      <a class="button" href="tests/wasm-worker.html"
+        >Open the live worker harness</a
+      >
+      <p>
+        <small
+          >This is an engineering demonstration, not a complete XForms 1.1
+          processor or a production replacement for the historical Firefox
+          extension.</small
+        >
+      </p>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>XForm Revival — Wasm worker harness</title>
+  <script src="../src/worker/xform-engine-client.js"></script>
+  <script src="../src/components/xforms-components.js"></script>
+  <style>body{font:16px/1.4 system-ui;margin:2rem}.pass{color:#146c2e;font-weight:700}.fail{color:#b42318;font-weight:700}</style>
+</head>
+<body>
+  <h1>Rust/WebAssembly worker harness</h1>
+  <xforms-host id="host" node-count="4" dependencies='[{"source":0,"dependent":1},{"source":1,"dependent":2},{"source":2,"dependent":3}]'>
+    <xforms-input node-id="0" label="Source"></xforms-input>
+    <xforms-output node-id="3" label="Dependent"></xforms-output>
+  </xforms-host>
+  <p id="result">Running…</p>
+  <script>
+    (() => {
+      const host = document.querySelector('#host');
+      const result = document.querySelector('#result');
+      host.addEventListener('xforms-ready', () => {
+        const client = host.engineClient;
+        const source = host.querySelector('xforms-input');
+        source.setControlState({value:'Ada'});
+        client.addEventListener('patches', ({detail}) => {
+          try {
+            const ids = detail.patches.map(p => p.nodeId).join(',');
+            if (detail.metrics.dirtyNodes !== 4 || ids !== '0,1,2,3') throw new Error(`Expected dirty 0..3, got ${detail.metrics.dirtyNodes}: ${ids}`);
+            result.className = 'pass';
+            result.textContent = 'PASS: Wasm worker propagated one source mutation through a four-node dependency graph.';
+            document.title = 'XForm Revival — Wasm worker PASS';
+          } catch (error) {
+            result.className = 'fail';
+            result.textContent = `FAIL: ${error.message}`;
+            document.title = 'XForm Revival — Wasm worker FAIL';
+          }
+        }, {once:true});
+        client.intent({kind:'set-value', nodeId:0, value:'Grace'});
+      }, {once:true});
+      host.addEventListener('xforms-diagnostic', ({detail}) => {
+        result.className = 'fail';
+        result.textContent = `FAIL: ${detail.join(' ')}`;
+        document.title = 'XForm Revival — Wasm worker FAIL';
+      });
+    })();
+  </script>
+</body>
+</html>
