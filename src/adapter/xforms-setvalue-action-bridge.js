@@ -7,6 +7,16 @@
     constructor(code, message) { super(message); this.name = "SetValueActionError"; this.code = code; }
   }
 
+  function captureNamespaces(element) {
+    const namespaces = Object.create(null);
+    for (let cursor = element; cursor && cursor.nodeType === Node.ELEMENT_NODE; cursor = cursor.parentElement) {
+      for (const attribute of cursor.attributes) {
+        if (attribute.name.startsWith("xmlns:") && namespaces[attribute.name.slice(6)] === undefined) namespaces[attribute.name.slice(6)] = attribute.value;
+      }
+    }
+    return Object.freeze(namespaces);
+  }
+
   class XFormsSetValueActionBridge {
     static create({ host, client, inlineInstanceXml } = {}) {
       if (!host || !client) throw new SetValueActionError("missing-action-host", "Setvalue action bridge requires a host and worker client.");
@@ -40,7 +50,7 @@
           this.diagnostic("invalid-setvalue-action", `Trigger '${trigger.id}' requires direct xf:setvalue ref and exactly one of value or xfr-literal.`);
           continue;
         }
-        this.actions.set(trigger.id, Object.freeze({ ref, literal, expression }));
+        this.actions.set(trigger.id, Object.freeze({ ref, literal, expression, namespaces: captureNamespaces(action) }));
       }
     }
 
@@ -59,7 +69,7 @@
             contextNode: this.documentNode.documentElement,
             contextPosition: 1,
             contextSize: 1,
-            namespaceResolver: () => null
+            namespaceResolver: (prefix) => action.namespaces[prefix] ?? null
           }).value;
       } catch (error) {
         this.diagnostic(error.code || "setvalue-value-evaluation", `Setvalue action for '${detail.controlId}' could not evaluate value: ${error.message}`);
