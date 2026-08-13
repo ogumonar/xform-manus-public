@@ -377,16 +377,20 @@
       this.bindDescendantComponents();
       this.observeDescendantComponents();
       const configuredNodeCount = Number(this.getAttribute("node-count") || 0);
-      const discoveredInstance = this.hasAttribute("discover-model") ? discoverInlineInstance(this, configuredNodeCount) : null;
+      const discoveredModel = this.hasAttribute("discover-model") ? discoverInlineModel(this, configuredNodeCount) : null;
+      const discoveredInstance = discoveredModel?.instance ?? null;
       const nodeCount = discoveredInstance?.nodeCount ?? configuredNodeCount;
       const dependencies = parseDependencies(this.getAttribute("dependencies"));
-      const initialValues = parseJsonArray(this.getAttribute("initial-values"), "xforms-host initial-values");
-      const initialModelItemFlags = parseJsonArray(this.getAttribute("initial-model-item-flags"), "xforms-host initial-model-item-flags");
+      const explicitInitialValues = parseJsonArray(this.getAttribute("initial-values"), "xforms-host initial-values");
+      const explicitInitialModelItemFlags = parseJsonArray(this.getAttribute("initial-model-item-flags"), "xforms-host initial-model-item-flags");
+      const executed = this.hasAttribute("execute-initial-binds")
+        ? executeInitialBinds(discoveredModel, this)
+        : { initialValues: [], initialModelItemFlags: [] };
       this.engineClient.hydrate({
         nodeCount,
         dependencies,
-        initialValues,
-        initialModelItemFlags,
+        initialValues: mergeHydrationProjections(executed.initialValues, explicitInitialValues),
+        initialModelItemFlags: mergeHydrationProjections(executed.initialModelItemFlags, explicitInitialModelItemFlags),
         inlineInstanceXml: discoveredInstance?.xml ?? null
       });
     }
@@ -485,7 +489,7 @@
     }
   }
 
-  function discoverInlineInstance(host, configuredNodeCount) {
+  function discoverInlineModel(host, configuredNodeCount) {
     if (!root.XFormsModelDiscovery?.discover) {
       throw new Error("Load xforms-model-discovery.js before using <xforms-host discover-model>.");
     }
@@ -501,7 +505,23 @@
     if (host.hasAttribute("node-count") && configuredNodeCount !== instance.nodeCount) {
       throw new Error(`<xforms-host> node-count ${configuredNodeCount} does not match discovered inline instance count ${instance.nodeCount}.`);
     }
-    return instance;
+    return Object.freeze({ instance, bindings: model.bindings });
+  }
+
+  function executeInitialBinds(discoveredModel, host) {
+    if (!discoveredModel) throw new Error("<xforms-host execute-initial-binds> requires discover-model and one inline xf:instance.");
+    if (!root.XFormsInitialBindExecutor?.execute) {
+      throw new Error("Load xforms-bind-target-resolver.js, xforms-property-evaluator.js, and xforms-initial-bind-executor.js before using <xforms-host execute-initial-binds>.");
+    }
+    return root.XFormsInitialBindExecutor.execute({
+      inlineInstanceXml: discoveredModel.instance.xml,
+      bindings: discoveredModel.bindings
+    });
+  }
+
+  function mergeHydrationProjections(generated, explicit) {
+    const explicitNodeIds = new Set(explicit.map((entry) => entry?.nodeId));
+    return [...generated.filter((entry) => !explicitNodeIds.has(entry.nodeId)), ...explicit];
   }
 
   function extractStatePatch(patch) {

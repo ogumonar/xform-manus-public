@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>XForm Revival — initial bind execution smoke</title>
+  <script src="../src/xpath/xpath-compatibility.js"></script>
+  <script src="../src/adapter/xforms-model-discovery.js"></script>
+  <script src="../src/adapter/xforms-bind-target-resolver.js"></script>
+  <script src="../src/xpath/xforms-property-evaluator.js"></script>
+  <script src="../src/adapter/xforms-initial-bind-executor.js"></script>
+  <script src="../src/worker/xform-engine-client.js"></script>
+  <script src="../src/components/xforms-components.js"></script>
+  <style>body{font:16px/1.4 system-ui;margin:2rem}.pass{color:#146c2e;font-weight:700}.fail{color:#b42318;font-weight:700}</style>
+</head>
+<body>
+  <h1>Initial bind execution harness</h1>
+  <xforms-host id="computed-host" discover-model execute-initial-binds>
+    <xf:model id="computed-model">
+      <xf:instance><data><source>Ada</source><name>Unknown</name><hidden></hidden></data></xf:instance>
+      <xf:bind id="name-bind" nodeset="/data/name" calculate="concat(../source, ' Lovelace')" readonly="true()" required="true()" constraint="string-length(.) &gt; 4"></xf:bind>
+      <xf:bind id="hidden-bind" nodeset="/data/hidden" relevant="false()" required="true()" constraint="false()"></xf:bind>
+    </xf:model>
+    <xforms-input id="source" node-id="1" label="Source"></xforms-input>
+    <xforms-input id="name" node-id="2" label="Name"></xforms-input>
+    <xforms-output id="hidden" node-id="3" label="Hidden"></xforms-output>
+  </xforms-host>
+  <xforms-host id="override-host" discover-model execute-initial-binds initial-values='[{"nodeId":2,"value":"Author override"}]'>
+    <xf:model id="override-model">
+      <xf:instance><data><source>Ada</source><name>Unknown</name></data></xf:instance>
+      <xf:bind nodeset="/data/name" calculate="concat(../source, ' Lovelace')"></xf:bind>
+    </xf:model>
+    <xforms-input id="override-name" node-id="2" label="Override name"></xforms-input>
+  </xforms-host>
+  <p id="result">Running…</p>
+  <script>
+    (() => {
+      "use strict";
+      const host = document.querySelector("#computed-host");
+      const overrideHost = document.querySelector("#override-host");
+      const source = document.querySelector("#source");
+      const name = document.querySelector("#name");
+      const hidden = document.querySelector("#hidden");
+      const overrideName = document.querySelector("#override-name");
+      const result = document.querySelector("#result");
+      let primaryHydrated = false;
+      let overrideHydrated = false;
+      let verifiedNoRecalculation = false;
+      let completed = false;
+      function fail(error) {
+        if (completed) return;
+        completed = true;
+        result.className = "fail";
+        result.textContent = `FAIL: ${error.message}`;
+        document.title = "XForm Revival — initial bind execution FAIL";
+      }
+      function completeIfReady() {
+        if (completed || !primaryHydrated || !overrideHydrated || !verifiedNoRecalculation) return;
+        completed = true;
+        result.className = "pass";
+        result.textContent = "PASS: Opt-in initial bind execution projects calculated values and model-item state before worker hydration.";
+        document.title = "XForm Revival — initial bind execution PASS";
+      }
+      host.addEventListener("xforms-diagnostic", ({ detail }) => fail(new Error(detail.join(" "))));
+      overrideHost.addEventListener("xforms-diagnostic", ({ detail }) => fail(new Error(detail.join(" "))));
+      const waitForClients = () => {
+        if (!host.engineClient || !overrideHost.engineClient) return queueMicrotask(waitForClients);
+        host.engineClient.addEventListener("patches", ({ detail }) => {
+          try {
+            const first = detail.patches.map((patch) => patch.nodeId).join(",") === "0,1,2,3" && detail.metrics.fullSnapshot === true;
+            if (!first) return;
+            const sourceInput = source.shadowRoot.querySelector("input");
+            const nameInput = name.shadowRoot.querySelector("input");
+            if (sourceInput.value !== "Ada" || nameInput.value !== "Ada Lovelace") throw new Error("Initial calculate projection was not applied before the worker snapshot.");
+            if (!nameInput.readOnly || !nameInput.required || name.getAttribute("data-xforms-invalid") !== null) throw new Error("Calculated node model-item flags did not project readonly, required, and valid state.");
+            if (!hidden.hidden) throw new Error("A non-relevant model item was not hidden by its first projection.");
+            primaryHydrated = true;
+            host.engineClient.addEventListener("patches", ({ detail: update }) => {
+              try {
+                if (!update.patches.some((patch) => patch.nodeId === 1 && patch.state?.value === "Grace")) throw new Error("Source set-value did not reach the worker.");
+                if (name.shadowRoot.querySelector("input").value !== "Ada Lovelace") throw new Error("Initial-only executor unexpectedly recalculated after a worker intent.");
+                verifiedNoRecalculation = true;
+                completeIfReady();
+              } catch (error) { fail(error); }
+            }, { once: true });
+            sourceInput.value = "Grace";
+            sourceInput.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+          } catch (error) { fail(error); }
+        });
+        overrideHost.engineClient.addEventListener("patches", ({ detail }) => {
+          try {
+            if (detail.patches.map((patch) => patch.nodeId).join(",") !== "0,1,2") return;
+            if (overrideName.shadowRoot.querySelector("input").value !== "Author override") throw new Error("Explicit initial-values must override the generated calculate projection.");
+            overrideHydrated = true;
+            completeIfReady();
+          } catch (error) { fail(error); }
+        });
+      };
+      waitForClients();
+      setTimeout(() => fail(new Error("Timed out waiting for initial bind execution projections.")), 5000);
+    })();
+  </script>
+</body>
+</html>

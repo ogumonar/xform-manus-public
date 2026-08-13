@@ -38,6 +38,11 @@ const checks = [
     name: "Inline instance worker hydration harness"
   },
   {
+    url: "http://127.0.0.1:4173/tests/initial-bind-execution-smoke.html",
+    expected: "PASS: Opt-in initial bind execution projects calculated values and model-item state before worker hydration.",
+    name: "Initial bind execution harness"
+  },
+  {
     url: "http://127.0.0.1:4173/tests/bind-target-resolution-smoke.html",
     expected: "PASS: Discovered bind targets resolve to ordered compact element IDs through the browser model adapter.",
     name: "Bind target resolution harness"
