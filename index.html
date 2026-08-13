@@ -115,6 +115,7 @@
             <li>Transactional Rust scalar values and resolved model-item state.</li>
             <li>Typed browser-side XPath 1.0 property evaluation over explicit singleton contexts.</li>
             <li>Opt-in initial bind calculations and model-item projections applied during worker hydration.</li>
+            <li>Conservative static compact-ID dependency extraction with explicit unsupported-reference diagnostics.</li>
             <li>Accessible input, choice, activation, and container components.</li>
             <li>Opt-in static XForms-markup adaptation for an early presentation subset.</li>
           </ul>
@@ -140,6 +141,7 @@
           <a class="lab-link" href="tests/simple-path-query-smoke.html"><strong>Simple path query</strong><span>Strict absolute and relative compact-instance path targets with diagnostics.</span></a>
           <a class="lab-link" href="tests/discovery-worker-hydration-smoke.html"><strong>Discovered model</strong><span>One inline <code>xf:model</code> discovered and hydrated through the worker.</span></a>
           <a class="lab-link" href="tests/inline-instance-worker-smoke.html"><strong>Inline XML worker</strong><span>Parsed XML topology, projection overlays, and full first patches.</span></a>
+          <a class="lab-link" href="tests/static-dependency-extractor-smoke.html"><strong>Static dependencies</strong><span>Proven supported XPath references become compact edges; dynamic forms emit diagnostics.</span></a>
           <a class="lab-link" href="tests/initial-bind-execution-smoke.html"><strong>Initial bind execution</strong><span>Calculated values and supported model-item state project into the worker’s first snapshot.</span></a>
           <a class="lab-link" href="tests/bind-target-resolution-smoke.html"><strong>Bind target resolver</strong><span>Discovered XPath 1.0 element targets map to compact preorder IDs under singleton parent contexts.</span></a>
           <a class="lab-link" href="tests/model-discovery-smoke.html"><strong>Model discovery</strong><span>Namespace-aware model, instance, and bind declaration diagnostics.</span></a>
@@ -154,7 +156,7 @@
 
       <section class="scope">
         <strong>Scope statement</strong>
-        <p>This site demonstrates an active modernization effort, not a complete XForms 1.1 processor. Inline XML base-state hydration, a compatibility gate, opt-in exact-one strict child-path <code>ref</code> association, discovered bind-target mapping, and opt-in initial calculated/property projections under singleton parent contexts are implemented; dependency-driven post-intent recalculation, repeat context, actions, submissions, and separately scoped native XPath 2.x / XForms 2.0 semantics remain implementation work.</p>
+        <p>This site demonstrates an active modernization effort, not a complete XForms 1.1 processor. Inline XML base-state hydration, a compatibility gate, opt-in exact-one strict child-path <code>ref</code> association, discovered bind-target mapping, and opt-in initial calculated/property projections under singleton parent contexts are implemented; worker registration and dependency-driven post-intent recalculation, repeat context, actions, submissions, and separately scoped native XPath 2.x / XForms 2.0 semantics remain implementation work.</p>
       </section>
     </main>
     <footer>Built from the public demo repository. Browser behavior is exercised in real headless Chromium before publication.</footer>
