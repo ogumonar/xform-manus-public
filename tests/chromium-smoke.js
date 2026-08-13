@@ -43,6 +43,11 @@ const checks = [
     name: "XForms model discovery harness"
   },
   {
+    url: "http://127.0.0.1:4173/tests/xforms-property-evaluator-smoke.html",
+    expected: "PASS: Typed XForms property evaluation preserves the XPath 1.0 boundary and explicit singleton context.",
+    name: "XForms property evaluator harness"
+  },
+  {
     url: "http://127.0.0.1:4173/tests/xpath-compatibility-smoke.html",
     expected: "PASS: XPath 1.0 compatibility gate and browser evaluator probe passed.",
     name: "XPath 1.0 compatibility harness"

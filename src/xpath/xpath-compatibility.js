@@ -49,6 +49,13 @@
     return (!previous || (!isNameCharacter(previous) && previous !== "$")) && (!next || !isNameCharacter(next));
   }
 
+  function followsOpeningParenthesis(source, offset) {
+    for (let index = offset; index < source.length; index += 1) {
+      if (!/\s/.test(source[index])) return source[index] === "(";
+    }
+    return false;
+  }
+
   function inspectXPath10(source) {
     if (typeof source !== "string" || source.trim() === "") {
       const error = new Error("XPath expression is empty.");
@@ -81,6 +88,7 @@
         while (index < source.length && isNameCharacter(source[index])) index += 1;
         const token = source.slice(start, index);
         if (isKeywordBoundary(source, start, index) && keywords.has(token)) {
+          if (token === "if" && followsOpeningParenthesis(source, index)) continue;
           syntax(start, "xpath2-keyword", `keyword '${token}'`);
         }
         continue;

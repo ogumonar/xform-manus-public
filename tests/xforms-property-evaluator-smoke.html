@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>XForm Revival — XForms property evaluator smoke</title>
+  <script src="../src/xpath/xpath-compatibility.js"></script>
+  <script src="../src/xpath/xforms-property-evaluator.js"></script>
+  <style>body{font:16px/1.4 system-ui;margin:2rem}.pass{color:#146c2e;font-weight:700}.fail{color:#b42318;font-weight:700}</style>
+</head>
+<body>
+  <h1>Typed XForms property evaluator harness</h1>
+  <p id="result">Running…</p>
+  <script>
+    (() => {
+      "use strict";
+      const result = document.querySelector("#result");
+      const { XFormsPropertyEvaluator, PropertyEvaluationError } = globalThis.XFormRevival;
+      function assert(condition, message) { if (!condition) throw new Error(message); }
+      function evaluate(request) {
+        return XFormsPropertyEvaluator.evaluate({ documentNode: xml, contextNode: person, namespaceResolver, ...request });
+      }
+      function expectsFailure(request, code) {
+        try {
+          evaluate(request);
+          throw new Error(`Expected '${request.expression}' to fail.`);
+        } catch (error) {
+          assert(error instanceof PropertyEvaluationError, `Expected PropertyEvaluationError for '${request.expression}', got ${error.name}.`);
+          assert(error.code === code, `Expected ${code}, got ${error.code}.`);
+        }
+      }
+      try {
+        const xml = new DOMParser().parseFromString(
+          "<data xmlns:ex='https://example.test/ns'><person><name>Ada</name><active>true</active><ex:label>member</ex:label></person></data>",
+          "application/xml"
+        );
+        const person = xml.documentElement.firstElementChild;
+        const namespaceResolver = (prefix) => prefix === "ex" ? "https://example.test/ns" : null;
+        const calculate = evaluate({ property: "calculate", expression: "concat(name, ' ', ex:label)" });
+        const readonly = evaluate({ property: "readonly", expression: "active = 'true'" });
+        const relevant = evaluate({ property: "relevant", expression: "if(active = 'true', true(), false())" });
+        const required = evaluate({ property: "required", expression: "choose(count(name) = 1, true(), false())" });
+        const constraint = evaluate({ property: "constraint", expression: "string-length(name) = 3" });
+        const lazy = evaluate({ property: "calculate", expression: "if(false(), current(), concat(name, '!'))" });
+        assert(calculate.expectedResult === "string" && calculate.value === "Ada member", "calculate must return a typed XPath string from the explicit node context.");
+        assert(readonly.expectedResult === "boolean" && readonly.value === true, "readonly must return a typed XPath boolean.");
+        assert(relevant.value === true && required.value === true && constraint.value === true, "XForms if()/choose() and boolean property evaluation did not produce true.");
+        assert(lazy.value === "Ada!", "if() must lazily avoid the deferred XForms function in its unselected branch.");
+        expectsFailure({ property: "calculate", expression: "current()" }, "xforms-function-deferred");
+        expectsFailure({ property: "relevant", expression: "name instance of xs:string" }, "xpath-compatibility");
+        expectsFailure({ property: "required", expression: "true()", contextPosition: 2, contextSize: 3 }, "unsupported-context-position");
+        expectsFailure({ property: "constraint", expression: "1 +" }, "xpath-evaluation-failed");
+        expectsFailure({ property: "not-a-property", expression: "true()" }, "unsupported-property");
+        result.className = "pass";
+        result.textContent = "PASS: Typed XForms property evaluation preserves the XPath 1.0 boundary and explicit singleton context.";
+        document.title = "XForm Revival — XForms property evaluator PASS";
+      } catch (error) {
+        result.className = "fail";
+        result.textContent = `FAIL: ${error.message}`;
+        document.title = "XForm Revival — XForms property evaluator FAIL";
+      }
+    })();
+  </script>
+</body>
+</html>
