@@ -1,18 +1,40 @@
 #!/usr/bin/env node
-/*
- * Minimal real-Chromium end-to-end smoke test for the Rust/Wasm worker harness.
- * It intentionally uses the system Chromium binary instead of downloading a
- * second browser through Playwright or Puppeteer, keeping the Dev Container small.
- */
+/* Real-Chromium smoke checks for the public XForm Revival demo. */
 "use strict";
 
 const { spawn, spawnSync } = require("node:child_process");
 const path = require("node:path");
 
-const root = path.resolve(__dirname, "../../..");
-const serverScript = path.join(root, "packages/browser-extension/tests/static-server.js");
-const url = "http://127.0.0.1:4173/packages/browser-extension/tests/wasm-worker.html";
+const root = path.resolve(__dirname, "..");
+const serverScript = path.join(root, "tests/static-server.js");
 const browser = process.env.CHROMIUM_BIN || "chromium";
+const checks = [
+  {
+    url: "http://127.0.0.1:4173/",
+    expected: "Adapter upgraded 2 XForms presentation elements.",
+    name: "Public runtime landing page"
+  },
+  {
+    url: "http://127.0.0.1:4173/tests/hydration-smoke.html",
+    expected: "PASS: Worker hydrates initial values and model-item state before first interaction.",
+    name: "Initial projection hydration harness"
+  },
+  {
+    url: "http://127.0.0.1:4173/tests/adapter-smoke.html",
+    expected: "PASS: XForms markup adapter upgrades the supported static component subset.",
+    name: "XForms markup adapter harness"
+  },
+  {
+    url: "http://127.0.0.1:4173/tests/components-smoke.html",
+    expected: "PASS: Web Components project XForms control state and emit safe, typed intents.",
+    name: "Web Component harness"
+  },
+  {
+    url: "http://127.0.0.1:4173/tests/wasm-worker.html",
+    expected: "PASS: Wasm worker propagated one source mutation through a four-node dependency graph.",
+    name: "Wasm worker harness"
+  }
+];
 
 const server = spawn(process.execPath, [serverScript], {
   cwd: root,
@@ -31,39 +53,42 @@ const timer = setTimeout(() => {
 
 server.stdout.once("data", () => {
   clearTimeout(timer);
-  const result = spawnSync(browser, [
-    "--headless=new",
-    "--no-sandbox",
-    "--disable-dev-shm-usage",
-    "--disable-gpu",
-    "--virtual-time-budget=5000",
-    "--dump-dom",
-    url
-  ], {
-    cwd: root,
-    encoding: "utf8",
-    timeout: 15000
-  });
-
+  for (const check of checks) {
+    const result = spawnSync(browser, [
+      "--headless=new",
+      "--no-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--virtual-time-budget=5000",
+      "--dump-dom",
+      check.url
+    ], {
+      cwd: root,
+      encoding: "utf8",
+      timeout: 15000
+    });
+    if (result.error) {
+      stopServer();
+      console.error(`FAIL: unable to launch ${browser}: ${result.error.message}`);
+      process.exitCode = 1;
+      return;
+    }
+    if (result.status !== 0) {
+      stopServer();
+      console.error(result.stderr || `FAIL: ${check.name} exited with status ${result.status}.`);
+      process.exitCode = 1;
+      return;
+    }
+    if (!result.stdout.includes(check.expected)) {
+      stopServer();
+      console.error(`FAIL: ${check.name} loaded, but its assertion did not pass.`);
+      console.error(result.stdout);
+      process.exitCode = 1;
+      return;
+    }
+    console.log(`PASS: ${check.name} executed successfully in Chromium.`);
+  }
   stopServer();
-
-  if (result.error) {
-    console.error(`FAIL: unable to launch ${browser}: ${result.error.message}`);
-    process.exitCode = 1;
-    return;
-  }
-  if (result.status !== 0) {
-    console.error(result.stderr || `FAIL: ${browser} exited with status ${result.status}.`);
-    process.exitCode = 1;
-    return;
-  }
-  if (!result.stdout.includes("PASS: Wasm worker propagated")) {
-    console.error("FAIL: Chromium loaded the harness, but the Wasm worker assertion did not pass.");
-    console.error(result.stdout);
-    process.exitCode = 1;
-    return;
-  }
-  console.log("PASS: real Chromium executed the Wasm worker harness successfully.");
 });
 
 server.once("error", (error) => {

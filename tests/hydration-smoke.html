@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>XForm Revival — hydration smoke</title>
+  <script src="../src/worker/xform-engine-client.js"></script>
+  <script src="../src/components/xforms-components.js"></script>
+  <style>body{font:16px/1.4 system-ui;margin:2rem}.pass{color:#146c2e;font-weight:700}.fail{color:#b42318;font-weight:700}</style>
+</head>
+<body>
+  <h1>Initial projection hydration harness</h1>
+  <xforms-host id="host" node-count="2"
+    dependencies='[{"source":0,"dependent":1}]'
+    initial-values='[{"nodeId":0,"value":"Ada"}]'
+    initial-model-item-flags='[{"nodeId":0,"flags":7}]'>
+    <xforms-input node-id="0" label="Name"></xforms-input>
+    <xforms-output node-id="1" label="Dependent"></xforms-output>
+  </xforms-host>
+  <p id="result">Running…</p>
+  <script>
+    (() => {
+      "use strict";
+      const host = document.querySelector("#host");
+      const result = document.querySelector("#result");
+      function fail(error) {
+        result.className = "fail";
+        result.textContent = `FAIL: ${error.message}`;
+        document.title = "XForm Revival — hydration FAIL";
+      }
+      function invalidHydrationDiagnostic() {
+        return new Promise((resolve, reject) => {
+          const worker = new Worker("../src/worker/xform-engine-worker.js");
+          const timeout = setTimeout(() => {
+            worker.terminate();
+            reject(new Error("Invalid hydration did not return a diagnostic."));
+          }, 1500);
+          worker.addEventListener("error", (event) => {
+            clearTimeout(timeout);
+            worker.terminate();
+            reject(new Error(event.message));
+          }, { once: true });
+          worker.addEventListener("message", ({data}) => {
+            clearTimeout(timeout);
+            worker.terminate();
+            resolve(data);
+          }, { once: true });
+          worker.postMessage({
+            protocolVersion: 1,
+            kind: "hydrate",
+            sequence: 80,
+            nodeCount: 1,
+            dependencies: [],
+            initialValues: [{nodeId: 0, value: "first"}, {nodeId: 0, value: "duplicate"}],
+            initialModelItemFlags: []
+          });
+        });
+      }
+      host.addEventListener("xforms-ready", async () => {
+        try {
+          const client = host.engineClient;
+          client.addEventListener("patches", async ({detail}) => {
+            try {
+              const ids = detail.patches.map((patch) => patch.nodeId).join(",");
+              const sourcePatch = detail.patches.find((patch) => patch.nodeId === 0);
+              const input = host.querySelector("xforms-input").shadowRoot.querySelector("input");
+              if (ids !== "0,1" || detail.metrics.dirtyNodes !== 2) throw new Error(`Expected initial patches 0,1; got ${ids}.`);
+              if (sourcePatch?.state?.value !== "Ada" || sourcePatch?.state?.readonly !== true || sourcePatch?.state?.required !== true || sourcePatch?.state?.valid !== false || sourcePatch?.state?.relevant !== true) {
+                throw new Error(`Initial source projection is incorrect: ${JSON.stringify(sourcePatch?.state)}.`);
+              }
+              if (input.value !== "Ada" || !input.readOnly || !input.required || input.getAttribute("aria-invalid") !== "true") {
+                throw new Error("Initial projection did not render in the input component.");
+              }
+              const diagnostic = await invalidHydrationDiagnostic();
+              if (diagnostic.protocolVersion !== 1 || diagnostic.kind !== "diagnostic" || !diagnostic.message.includes("duplicate nodeId 0")) {
+                throw new Error(`Invalid hydration diagnostic is incorrect: ${JSON.stringify(diagnostic)}.`);
+              }
+              result.className = "pass";
+              result.textContent = "PASS: Worker hydrates initial values and model-item state before first interaction.";
+              document.title = "XForm Revival — hydration PASS";
+            } catch (error) {
+              fail(error);
+            }
+          }, { once: true });
+        } catch (error) {
+          fail(error);
+        }
+      }, { once: true });
+      host.addEventListener("xforms-diagnostic", ({detail}) => fail(new Error(detail.join(" "))));
+    })();
+  </script>
+</body>
+</html>

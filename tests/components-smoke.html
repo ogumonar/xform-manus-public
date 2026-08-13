@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>XForm Revival — component smoke</title>
+  <script src="../src/components/xforms-components.js"></script>
+  <style>
+    body{font:16px/1.4 system-ui;margin:2rem;max-width:70rem}
+    .pass{color:#146c2e;font-weight:700}.fail{color:#b42318;font-weight:700}
+    #sandbox{display:none}
+  </style>
+</head>
+<body>
+  <h1>Web Component smoke harness</h1>
+  <p id="result">Running…</p>
+  <div id="sandbox" aria-hidden="true"></div>
+  <script>
+    (async () => {
+      "use strict";
+      const result = document.querySelector("#result");
+      const sandbox = document.querySelector("#sandbox");
+
+      function assert(condition, message) {
+        if (!condition) throw new Error(message);
+      }
+
+      function mount(tag, state = {}, attributes = {}) {
+        const element = document.createElement(tag);
+        for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, value);
+        sandbox.append(element);
+        element.setControlState(state);
+        return element;
+      }
+
+      function remove(element) { element.remove(); }
+
+      function captureIntent(element, invoke) {
+        let detail = null;
+        element.addEventListener("xforms-intent", (event) => { detail = event.detail; }, { once: true });
+        invoke();
+        assert(detail, `${element.localName} did not emit xforms-intent.`);
+        return detail;
+      }
+
+      function testInputStateAndForwarding() {
+        const input = mount("xforms-input", {
+          value: "Ada", required: true, valid: false, readonly: true,
+          hint: "Enter a name", alert: "Name is required"
+        }, { "node-id": "7", label: "Name" });
+        const native = input.shadowRoot.querySelector("input");
+        assert(native.value === "Ada", "Input did not project its string value.");
+        assert(native.required && native.readOnly, "Input did not reflect required/readonly state.");
+        assert(native.getAttribute("aria-invalid") === "true", "Input did not expose invalid state.");
+        assert(input.shadowRoot.querySelector("label")?.textContent === "Name", "Input label was not associated.");
+        assert(input.shadowRoot.querySelector("[part=hint]")?.textContent === "Enter a name", "Input hint was not projected.");
+        assert(input.shadowRoot.querySelector("[part=alert]")?.textContent === "Name is required", "Input alert was not projected.");
+        const sent = [];
+        input.bindClient({ registerComponent() {}, unregisterComponent() {}, intent(detail) { sent.push(detail); } });
+        native.readOnly = false;
+        native.value = "Grace";
+        const detail = captureIntent(input, () => native.dispatchEvent(new Event("input")));
+        assert(detail.kind === "set-value" && detail.value === "Grace" && detail.nodeId === 7, "Input intent is malformed.");
+        assert(sent.length === 1 && sent[0].value === "Grace", "Bound input intent was not forwarded to the client.");
+        input.setControlState({ relevant: false });
+        assert(input.hidden, "Irrelevant input was not hidden.");
+        remove(input);
+      }
+
+      function testTextControlsAndSafeOutput() {
+        const secret = mount("xforms-secret", { value: "shh" });
+        const secretNative = secret.shadowRoot.querySelector("input");
+        assert(secretNative.type === "password" && secretNative.value === "shh", "Secret did not use a password primitive.");
+        const secretIntent = captureIntent(secret, () => {
+          secretNative.value = "changed";
+          secretNative.dispatchEvent(new Event("input"));
+        });
+        assert(secretIntent.value === "changed", "Secret intent omitted the candidate value.");
+
+        const textarea = mount("xforms-textarea", { value: "first\nsecond" });
+        const textNative = textarea.shadowRoot.querySelector("textarea");
+        assert(textNative.value === "first\nsecond", "Textarea did not preserve multiline value.");
+        const textIntent = captureIntent(textarea, () => {
+          textNative.value = "updated";
+          textNative.dispatchEvent(new Event("input"));
+        });
+        assert(textIntent.value === "updated", "Textarea intent is malformed.");
+
+        const output = mount("xforms-output", { value: "<script>unsafe()</script>" });
+        const nativeOutput = output.shadowRoot.querySelector("output");
+        assert(nativeOutput.textContent === "<script>unsafe()</script>", "Output did not preserve text content.");
+        assert(!nativeOutput.querySelector("script"), "Output treated projected text as markup.");
+        [secret, textarea, output].forEach(remove);
+      }
+
+      function testRangeAndChoiceControls() {
+        const range = mount("xforms-range", { value: "4", start: "1", end: "9", step: "2" });
+        const rangeNative = range.shadowRoot.querySelector("input");
+        assert(rangeNative.min === "1" && rangeNative.max === "9" && rangeNative.step === "2", "Range bounds were not projected.");
+        const rangeIntent = captureIntent(range, () => rangeNative.dispatchEvent(new Event("input")));
+        assert(rangeIntent.value === "5" || rangeIntent.value === "4", "Range did not emit its native value.");
+
+        const choices = [
+          { value: "ada", label: "Ada Lovelace" },
+          { value: "grace", label: "Grace Hopper", disabled: true },
+          { value: "<unsafe>", label: "<unsafe>" }
+        ];
+        const select1 = mount("xforms-select1", { value: "ada", choices });
+        const single = select1.shadowRoot.querySelector("select");
+        assert(!single.multiple && single.value === "ada", "Select1 did not select exactly one projected value.");
+        assert(single.options[1].disabled, "Select1 did not project disabled choice state.");
+        assert(single.options[2].textContent === "<unsafe>", "Select1 did not render choice label as text.");
+        const select1Intent = captureIntent(select1, () => {
+          single.value = "<unsafe>";
+          single.dispatchEvent(new Event("change"));
+        });
+        assert(select1Intent.value === "<unsafe>", "Select1 intent did not contain one string value.");
+
+        const select = mount("xforms-select", { value: ["ada", "<unsafe>"], choices });
+        const multi = select.shadowRoot.querySelector("select");
+        assert(multi.multiple && multi.selectedOptions.length === 2, "Select did not project multiple selected values.");
+        const selectIntent = captureIntent(select, () => {
+          multi.options[0].selected = false;
+          multi.options[2].selected = true;
+          multi.dispatchEvent(new Event("change"));
+        });
+        assert(Array.isArray(selectIntent.value) && selectIntent.value.join(",") === "<unsafe>", "Select intent did not contain a stable value array.");
+        [range, select1, select].forEach(remove);
+      }
+
+      function testActivationControls() {
+        const trigger = mount("xforms-trigger", { label: "Calculate" });
+        const triggerIntent = captureIntent(trigger, () => trigger.shadowRoot.querySelector("button").click());
+        assert(triggerIntent.kind === "activate" && triggerIntent.nodeId === null, "Unbound trigger did not emit activate intent.");
+
+        const submit = mount("xforms-submit", { label: "Save" });
+        const submitIntent = captureIntent(submit, () => submit.shadowRoot.querySelector("button").click());
+        assert(submitIntent.kind === "submit" && submitIntent.nodeId === null, "Unbound submit did not emit submit intent.");
+        [trigger, submit].forEach(remove);
+      }
+
+      function testContainerComponents() {
+        const group = document.createElement("xforms-group");
+        const child = document.createElement("xforms-input");
+        child.setAttribute("label", "Street");
+        group.append(child);
+        sandbox.append(group);
+        group.setControlState({ label: "Address", hint: "Postal address" });
+        assert(group.shadowRoot.querySelector("fieldset"), "Group did not render a semantic fieldset.");
+        assert(group.shadowRoot.querySelector("legend")?.textContent === "Address", "Group did not project its label as a legend.");
+        assert(group.shadowRoot.querySelector("[part=hint]")?.textContent === "Postal address", "Group did not project its hint.");
+        assert(group.contains(child), "Group should retain its child controls in light DOM.");
+        group.setControlState({ relevant: false });
+        assert(group.hidden, "Irrelevant group was not hidden.");
+
+        const switchElement = document.createElement("xforms-switch");
+        const first = document.createElement("xforms-case");
+        const second = document.createElement("xforms-case");
+        first.setAttribute("case-id", "first");
+        second.setAttribute("case-id", "second");
+        first.append(document.createTextNode("First case"));
+        second.append(document.createTextNode("Second case"));
+        switchElement.append(first, second);
+        sandbox.append(switchElement);
+        let intentCount = 0;
+        switchElement.addEventListener("xforms-intent", () => { intentCount += 1; });
+        switchElement.setControlState({ selectedCase: "first" });
+        assert(!first.hidden && first.getAttribute("aria-hidden") === "false", "Selected case was not exposed.");
+        assert(second.hidden && second.getAttribute("aria-hidden") === "true", "Unselected case was not hidden.");
+        switchElement.setControlState({ selectedCase: "second" });
+        assert(first.hidden && !second.hidden, "Switch did not update case visibility from projected selection.");
+        second.setControlState({ relevant: false });
+        assert(second.hidden, "Irrelevant selected case was not hidden.");
+        assert(intentCount === 0, "Container projection emitted an unexpected model intent.");
+        [group, switchElement].forEach(remove);
+      }
+
+      async function testHostRegistrationLifecycle() {
+        const registrations = [];
+        const unregistrations = [];
+        const clients = [];
+        globalThis.XFormRevival.XFormEngineClient = class TestEngineClient extends EventTarget {
+          constructor() { super(); clients.push(this); this.disposed = false; }
+          hydrate() {}
+          registerComponent(nodeId, component) { registrations.push([nodeId, component]); }
+          unregisterComponent(nodeId, component) { unregistrations.push([nodeId, component]); }
+          dispose() { this.disposed = true; }
+        };
+
+        const host = document.createElement("xforms-host");
+        host.setAttribute("node-count", "0");
+        const initial = document.createElement("xforms-input");
+        initial.setAttribute("node-id", "11");
+        host.append(initial);
+        sandbox.append(host);
+        await Promise.resolve();
+        assert(registrations.some(([nodeId, component]) => nodeId === 11 && component === initial), "Host did not register its initial component.");
+
+        initial.setAttribute("node-id", "12");
+        assert(unregistrations.some(([nodeId, component]) => nodeId === 11 && component === initial), "Changing node-id left the old registration behind.");
+        assert(registrations.some(([nodeId, component]) => nodeId === 12 && component === initial), "Changing node-id did not register the new node.");
+
+        const nested = document.createElement("div");
+        const dynamic = document.createElement("xforms-output");
+        dynamic.setAttribute("node-id", "13");
+        nested.append(dynamic);
+        host.append(nested);
+        await Promise.resolve();
+        assert(registrations.some(([nodeId, component]) => nodeId === 13 && component === dynamic), "Host did not register a dynamically inserted descendant control.");
+
+        host.remove();
+        assert(unregistrations.some(([nodeId, component]) => nodeId === 12 && component === initial), "Host teardown did not unregister the updated control node.");
+        assert(unregistrations.some(([nodeId, component]) => nodeId === 13 && component === dynamic), "Host teardown did not unregister the dynamic control node.");
+        assert(clients.length === 1 && clients[0].disposed, "Host teardown did not dispose its engine client.");
+      }
+
+      try {
+        testInputStateAndForwarding();
+        testTextControlsAndSafeOutput();
+        testRangeAndChoiceControls();
+        testActivationControls();
+        testContainerComponents();
+        await testHostRegistrationLifecycle();
+        result.className = "pass";
+        result.textContent = "PASS: Web Components project XForms control state and emit safe, typed intents.";
+        document.title = "XForm Revival — component PASS";
+      } catch (error) {
+        result.className = "fail";
+        result.textContent = `FAIL: ${error.message}`;
+        document.title = "XForm Revival — component FAIL";
+      }
+    })();
+  </script>
+</body>
+</html>

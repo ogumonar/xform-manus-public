@@ -18,29 +18,69 @@
     (() => {
       const host = document.querySelector('#host');
       const result = document.querySelector('#result');
-      host.addEventListener('xforms-ready', () => {
-        const client = host.engineClient;
-        const source = host.querySelector('xforms-input');
-        source.setControlState({value:'Ada'});
-        client.addEventListener('patches', ({detail}) => {
-          try {
-            const ids = detail.patches.map(p => p.nodeId).join(',');
-            if (detail.metrics.dirtyNodes !== 4 || ids !== '0,1,2,3') throw new Error(`Expected dirty 0..3, got ${detail.metrics.dirtyNodes}: ${ids}`);
-            result.className = 'pass';
-            result.textContent = 'PASS: Wasm worker propagated one source mutation through a four-node dependency graph.';
-            document.title = 'XForm Revival — Wasm worker PASS';
-          } catch (error) {
-            result.className = 'fail';
-            result.textContent = `FAIL: ${error.message}`;
-            document.title = 'XForm Revival — Wasm worker FAIL';
+
+      function fail(error) {
+        result.className = 'fail';
+        result.textContent = `FAIL: ${error.message}`;
+        document.title = 'XForm Revival — Wasm worker FAIL';
+      }
+
+      function incompatibleProtocolDiagnostic() {
+        return new Promise((resolve, reject) => {
+          const worker = new Worker('../src/worker/xform-engine-worker.js');
+          const timeout = setTimeout(() => {
+            worker.terminate();
+            reject(new Error('Incompatible worker protocol did not produce a diagnostic.'));
+          }, 1000);
+          worker.addEventListener('error', (event) => {
+            clearTimeout(timeout);
+            worker.terminate();
+            reject(new Error(event.message));
+          }, {once:true});
+          worker.addEventListener('message', ({data}) => {
+            clearTimeout(timeout);
+            worker.terminate();
+            resolve(data);
+          }, {once:true});
+          worker.postMessage({protocolVersion:0, kind:'hydrate', sequence:99, nodeCount:0});
+        });
+      }
+
+      host.addEventListener('xforms-ready', async () => {
+        try {
+          const diagnostic = await incompatibleProtocolDiagnostic();
+          if (diagnostic.protocolVersion !== 1 || diagnostic.kind !== 'diagnostic' || diagnostic.code !== 'protocol-version-mismatch') {
+            throw new Error(`Unexpected protocol diagnostic: ${JSON.stringify(diagnostic)}`);
           }
-        }, {once:true});
-        client.intent({kind:'set-value', nodeId:0, value:'Grace'});
+          const client = host.engineClient;
+          const source = host.querySelector('xforms-input');
+          source.setControlState({value:'Ada'});
+          client.addEventListener('patches', ({detail}) => {
+            try {
+              const ids = detail.patches.map(p => p.nodeId).join(',');
+              const sourcePatch = detail.patches.find(p => p.nodeId === 0);
+              const renderedValue = source.shadowRoot.querySelector('input').value;
+              if (detail.metrics.dirtyNodes !== 4 || ids !== '0,1,2,3') throw new Error(`Expected dirty 0..3, got ${detail.metrics.dirtyNodes}: ${ids}`);
+              if (sourcePatch?.state?.value !== 'Grace' || renderedValue !== 'Grace') throw new Error('Expected the committed source value to round-trip through the Wasm patch.');
+              if (sourcePatch?.state?.relevant !== true || sourcePatch?.state?.readonly !== false || sourcePatch?.state?.required !== false || sourcePatch?.state?.valid !== true) {
+                throw new Error(`Expected default model-item state projection, got ${JSON.stringify(sourcePatch?.state)}.`);
+              }
+              result.className = 'pass';
+              result.textContent = 'PASS: Wasm worker propagated one source mutation through a four-node dependency graph.';
+              document.title = 'XForm Revival — Wasm worker PASS';
+            } catch (error) {
+              fail(error);
+            }
+          }, {once:true});
+          const input = source.shadowRoot.querySelector('input');
+          input.value = 'Grace';
+          input.dispatchEvent(new Event('input'));
+        } catch (error) {
+          fail(error);
+        }
       }, {once:true});
       host.addEventListener('xforms-diagnostic', ({detail}) => {
-        result.className = 'fail';
-        result.textContent = `FAIL: ${detail.join(' ')}`;
-        document.title = 'XForm Revival — Wasm worker FAIL';
+        fail(new Error(detail.join(' ')));
       });
     })();
   </script>

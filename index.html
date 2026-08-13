@@ -1,76 +1,185 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>XForm Revival — Browser Demo</title>
-    <style>
-      :root {
-        color-scheme: light;
-        font-family: system-ui, sans-serif;
-      }
-      body {
-        max-width: 54rem;
-        margin: 0 auto;
-        padding: 4rem 1.5rem;
-        color: #172033;
-        background: #f7f9fc;
-      }
-      main {
-        padding: 2.5rem;
-        background: white;
-        border: 1px solid #d8e0ec;
-        border-radius: 1rem;
-        box-shadow: 0 1rem 3rem rgb(23 32 51 / 8%);
-      }
-      h1 {
-        margin-top: 0;
-        font-size: clamp(2rem, 5vw, 3.5rem);
-        letter-spacing: -0.04em;
-      }
-      p {
-        line-height: 1.7;
-      }
-      .button {
-        display: inline-block;
-        margin-top: 1rem;
-        padding: 0.8rem 1.1rem;
-        border-radius: 0.55rem;
-        color: white;
-        background: #155eef;
-        text-decoration: none;
-        font-weight: 700;
-      }
-      .button:hover,
-      .button:focus {
-        background: #004eeb;
-      }
-      code {
-        padding: 0.15rem 0.3rem;
-        border-radius: 0.25rem;
-        background: #eef2f8;
-      }
-    </style>
-  </head>
-  <body>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="A public engineering demonstration of the XForm Revival Rust, WebAssembly, worker, and Web Component runtime." />
+  <title>XForm Revival — Runtime Lab</title>
+  <script src="src/worker/xform-engine-client.js"></script>
+  <script src="src/components/xforms-components.js"></script>
+  <script src="src/adapter/xforms-component-adapter.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #14213d;
+      --muted: #526178;
+      --line: #dce4f0;
+      --canvas: #f5f8fc;
+      --card: #ffffff;
+      --accent: #155eef;
+      --accent-deep: #004eeb;
+      --success: #067647;
+      --warn: #a15c07;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); background: linear-gradient(180deg, #edf4ff 0, var(--canvas) 28rem); }
+    a { color: inherit; }
+    .shell { width: min(74rem, calc(100% - 2.5rem)); margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem 0; }
+    .brand { display: flex; align-items: center; gap: .7rem; font-weight: 800; letter-spacing: -.02em; text-decoration: none; }
+    .mark { display:grid; place-items:center; inline-size:2rem; block-size:2rem; border-radius:.55rem; color:#fff; background:linear-gradient(135deg, #155eef, #7b61ff); box-shadow:0 .35rem .9rem rgb(21 94 239 / 24%); }
+    .source { color: var(--muted); font-size: .9rem; }
+    .source:hover { color: var(--accent); }
+    main { padding: 3.5rem 0 5rem; }
+    .eyebrow { margin: 0 0 .8rem; color: var(--accent); font-size: .78rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { max-width: 15ch; margin: 0; font-size: clamp(2.7rem, 7vw, 5.8rem); line-height: .98; letter-spacing: -.065em; }
+    .lede { max-width: 44rem; margin: 1.6rem 0 0; color: var(--muted); font-size: clamp(1.05rem, 2vw, 1.3rem); line-height: 1.7; }
+    .pill-row { display: flex; flex-wrap: wrap; gap: .55rem; margin: 1.7rem 0 3rem; }
+    .pill { padding: .38rem .7rem; border: 1px solid #cad8ef; border-radius: 999px; color: #2e4b78; background: rgb(255 255 255 / 70%); font-size: .82rem; font-weight: 700; }
+    .grid { display:grid; grid-template-columns: minmax(0, 1.25fr) minmax(17rem, .75fr); gap: 1.2rem; align-items:start; }
+    .card { border: 1px solid var(--line); border-radius: 1rem; background: var(--card); box-shadow: 0 1.1rem 2.8rem rgb(20 33 61 / 7%); }
+    .live { padding: 1.4rem; }
+    .card h2 { margin: 0; font-size: 1.15rem; letter-spacing: -.02em; }
+    .card p { color: var(--muted); line-height: 1.6; }
+    .runtime-status { display:flex; align-items:center; gap:.55rem; margin: 1rem 0 1.25rem; color: var(--muted); font-size: .9rem; }
+    .dot { inline-size:.58rem; block-size:.58rem; border-radius:999px; background:#98a4b8; }
+    .dot.ready { background:#12b76a; box-shadow:0 0 0 .24rem rgb(18 183 106 / 13%); }
+    .dot.error { background:#d92d20; }
+    xforms-host { display:block; padding: 1rem; border: 1px solid #d7e2f4; border-radius: .8rem; background: #f8fbff; }
+    xforms-output { margin-top:.85rem; }
+    .metrics { display:grid; grid-template-columns: repeat(3, 1fr); gap:.65rem; margin-top:1rem; }
+    .metric { padding:.7rem; border-radius:.65rem; background:#f4f7fb; }
+    .metric span { display:block; color:var(--muted); font-size:.72rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
+    .metric strong { display:block; margin-top:.18rem; font-size:1rem; }
+    .side { padding: 1.4rem; }
+    .side ul { display:grid; gap:.85rem; padding:0; margin:1.1rem 0 0; list-style:none; }
+    .side li { position:relative; padding-left:1.25rem; color:var(--muted); font-size:.93rem; line-height:1.5; }
+    .side li::before { position:absolute; left:0; content:""; inline-size:.5rem; block-size:.5rem; margin-top:.42rem; border-radius:999px; background:var(--accent); }
+    .lab { margin-top: 1.25rem; padding: 1.4rem; }
+    .lab-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:.8rem; margin-top:1rem; }
+    .lab-link { display:block; padding:1rem; border:1px solid var(--line); border-radius:.75rem; text-decoration:none; transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease; }
+    .lab-link:hover { transform:translateY(-2px); border-color:#9dbcf8; box-shadow:0 .6rem 1.5rem rgb(21 94 239 / 10%); }
+    .lab-link strong { display:block; }
+    .lab-link span { display:block; margin-top:.3rem; color:var(--muted); font-size:.85rem; line-height:1.45; }
+    .adapter { margin-top: 1.25rem; padding:1.4rem; }
+    .adapter-demo { margin-top:1rem; padding:1rem; border:1px dashed #b6c8e6; border-radius:.75rem; background:#fbfdff; }
+    .adapter-status { margin-top:.75rem; color:var(--success); font-size:.9rem; font-weight:700; }
+    .scope { margin-top:1.25rem; padding:1.4rem; border-left:4px solid #f5a623; color:#59420f; background:#fff9ec; }
+    .scope p { margin:.5rem 0 0; color:#71561d; line-height:1.6; }
+    footer { padding: 0 0 2.5rem; color: var(--muted); font-size:.85rem; }
+    @media (max-width: 48rem) { .grid { grid-template-columns:1fr; } .lab-grid { grid-template-columns:1fr; } main { padding-top:2rem; } header { align-items:flex-start; flex-direction:column; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <a class="brand" href="./"><span class="mark">XF</span><span>XForm Revival</span></a>
+      <a class="source" href="https://github.com/ogumonar/xform-manus" target="_blank" rel="noreferrer">Runtime source ↗</a>
+    </header>
     <main>
-      <p><strong>XForm Revival</strong></p>
-      <h1>Rust/WebAssembly browser demo</h1>
-      <p>
-        This public harness demonstrates a Rust/WebAssembly XForms
-        dependency-graph worker running in a modern browser. A source mutation
-        is propagated through a four-node graph and verified in the page.
-      </p>
-      <a class="button" href="tests/wasm-worker.html"
-        >Open the live worker harness</a
-      >
-      <p>
-        <small
-          >This is an engineering demonstration, not a complete XForms 1.1
-          processor or a production replacement for the historical Firefox
-          extension.</small
-        >
-      </p>
+      <p class="eyebrow">Public engineering demonstration</p>
+      <h1>XForms, rebuilt for today’s browser.</h1>
+      <p class="lede">A small but real execution path: accessible Web Components emit typed intents, a dedicated worker owns WebAssembly state, and Rust returns ordered control patches.</p>
+      <div class="pill-row" aria-label="Runtime layers"><span class="pill">Rust core</span><span class="pill">WebAssembly ABI</span><span class="pill">Dedicated worker</span><span class="pill">Web Components</span><span class="pill">XForms 1.1 baseline</span></div>
+
+      <section class="grid" aria-label="Live runtime overview">
+        <article class="card live">
+          <h2>Live worker-backed control</h2>
+          <p>Initial control state is hydrated into the worker. Edit the value to send a scalar intent through the full browser → worker → Rust → patch path.</p>
+          <div class="runtime-status"><span class="dot" id="status-dot"></span><span id="status-text">Starting worker…</span></div>
+          <xforms-host id="live-host" node-count="2"
+            dependencies='[{"source":0,"dependent":1}]'
+            initial-values='[{"nodeId":0,"value":"Ada"}]'
+            initial-model-item-flags='[{"nodeId":0,"flags":13}]'>
+            <xforms-input node-id="0" label="Display name" hint="Try changing this value."></xforms-input>
+            <xforms-output node-id="1" label="Dependent node"></xforms-output>
+          </xforms-host>
+          <div class="metrics" aria-label="Latest worker metrics">
+            <div class="metric"><span>Transaction</span><strong id="metric-version">—</strong></div>
+            <div class="metric"><span>Dirty nodes</span><strong id="metric-dirty">—</strong></div>
+            <div class="metric"><span>Worker update</span><strong id="metric-time">—</strong></div>
+          </div>
+        </article>
+        <aside class="card side">
+          <h2>What is working here</h2>
+          <ul>
+            <li>Versioned browser ↔ worker messages with structured diagnostics.</li>
+            <li>Transactional Rust scalar values and resolved model-item state.</li>
+            <li>Accessible input, choice, activation, and container components.</li>
+            <li>Opt-in static XForms-markup adaptation for an early presentation subset.</li>
+          </ul>
+        </aside>
+      </section>
+
+      <section class="card adapter">
+        <h2>Static XForms-markup adapter</h2>
+        <p>The public adapter converts a deliberately narrow, opt-in subset of <code>xf:*</code> presentation markup to the same component layer. It is not a hidden parser or a full processor.</p>
+        <div class="adapter-demo" id="adapter-root">
+          <xf:group id="adapter-group">
+            <xf:label>Adapter example</xf:label>
+            <xf:input id="adapter-input"><xf:label>Plain XForms markup</xf:label><xf:hint>Converted on this page after load.</xf:hint></xf:input>
+          </xf:group>
+        </div>
+        <div class="adapter-status" id="adapter-status">Preparing adapter…</div>
+      </section>
+
+      <section class="card lab">
+        <h2>Verified browser harnesses</h2>
+        <div class="lab-grid">
+          <a class="lab-link" href="tests/hydration-smoke.html"><strong>Initial hydration</strong><span>Initial scalar values, model-item state, and payload validation.</span></a>
+          <a class="lab-link" href="tests/adapter-smoke.html"><strong>Markup adapter</strong><span>Namespace-aware static control and container transformation.</span></a>
+          <a class="lab-link" href="tests/components-smoke.html"><strong>Components</strong><span>Accessible projections, intents, containers, and lifecycle behavior.</span></a>
+          <a class="lab-link" href="tests/wasm-worker.html"><strong>Wasm worker</strong><span>Protocol checks, dependency propagation, and scalar value round-trip.</span></a>
+        </div>
+      </section>
+
+      <section class="scope">
+        <strong>Scope statement</strong>
+        <p>This site demonstrates an active modernization effort, not a complete XForms 1.1 processor. XML instances, <code>xf:bind</code>, the XPath 1.0 compatibility layer, actions, repeat context, submissions, and XForms 2.0 extensions remain separately scoped implementation work.</p>
+      </section>
     </main>
-  </body>
+    <footer>Built from the public demo repository. Browser behavior is exercised in real headless Chromium before publication.</footer>
+  </div>
+  <script>
+    (() => {
+      const host = document.querySelector('#live-host');
+      const dot = document.querySelector('#status-dot');
+      const status = document.querySelector('#status-text');
+      const version = document.querySelector('#metric-version');
+      const dirty = document.querySelector('#metric-dirty');
+      const time = document.querySelector('#metric-time');
+      window.addEventListener('error', (event) => {
+        dot.className = 'dot error';
+        status.textContent = `Runtime error: ${event.message}`;
+      });
+      host.addEventListener('xforms-ready', () => {
+        dot.className = 'dot ready';
+        status.textContent = 'Worker ready; initial projection applied.';
+      });
+      if (!host.engineClient) {
+        dot.className = 'dot error';
+        status.textContent = 'Runtime error: XForms host did not initialize its worker client.';
+      } else {
+        status.textContent = 'Worker client initialized; awaiting hydration.';
+      }
+      host.engineClient?.addEventListener('patches', ({ detail }) => {
+        version.textContent = String(detail.metrics.transactionVersion);
+        dirty.textContent = String(detail.metrics.dirtyNodes);
+        time.textContent = `${detail.metrics.workerUpdateMs.toFixed(2)} ms`;
+        status.textContent = `Applied ${detail.patches.length} ordered component patch${detail.patches.length === 1 ? '' : 'es'}.`;
+      });
+      host.addEventListener('xforms-diagnostic', ({ detail }) => {
+        dot.className = 'dot error';
+        status.textContent = `Worker diagnostic: ${detail.join(' ')}`;
+      });
+      try {
+        const summary = globalThis.XFormRevival.XFormsComponentAdapter.upgrade(document.querySelector('#adapter-root'));
+        document.querySelector('#adapter-status').textContent = `Adapter upgraded ${summary.upgraded} XForms presentation element${summary.upgraded === 1 ? '' : 's'}.`;
+      } catch (error) {
+        document.querySelector('#adapter-status').textContent = `Adapter diagnostic: ${error.message}`;
+      }
+    })();
+  </script>
+</body>
 </html>

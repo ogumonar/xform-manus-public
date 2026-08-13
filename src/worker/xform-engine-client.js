@@ -5,6 +5,7 @@
 (() => {
   "use strict";
   const root = globalThis.XFormRevival = globalThis.XFormRevival || {};
+  const PROTOCOL_VERSION = 1;
 
   const clientScriptUrl = document.currentScript?.src || globalThis.location?.href;
 
@@ -25,8 +26,8 @@
       this.worker.onerror = (event) => this.onDiagnostic("XForms worker error", event.message);
     }
 
-    hydrate({ nodeCount, dependencies = [] }) {
-      return this.request("hydrate", { nodeCount, dependencies });
+    hydrate({ nodeCount, dependencies = [], initialValues = [], initialModelItemFlags = [] }) {
+      return this.request("hydrate", { nodeCount, dependencies, initialValues, initialModelItemFlags });
     }
 
     registerComponent(nodeId, component) {
@@ -43,11 +44,27 @@
 
     request(kind, body) {
       const sequence = ++this.sequence;
-      this.worker.postMessage({ kind, sequence, ...body });
+      this.worker.postMessage({ protocolVersion: PROTOCOL_VERSION, kind, sequence, ...body });
       return sequence;
     }
 
     receive(message) {
+      if (!message || message.protocolVersion !== PROTOCOL_VERSION) {
+        const received = message?.protocolVersion ?? "missing";
+        this.onDiagnostic(`[XForm Revival] worker protocol mismatch: expected ${PROTOCOL_VERSION}, received ${received}.`);
+        this.dispatchEvent(new CustomEvent("diagnostic", { detail: {
+          kind: "diagnostic",
+          level: "error",
+          code: "protocol-version-mismatch",
+          expectedProtocolVersion: PROTOCOL_VERSION,
+          receivedProtocolVersion: message?.protocolVersion
+        } }));
+        return;
+      }
+      if (typeof message.kind !== "string") {
+        this.onDiagnostic("[XForm Revival] worker reply omitted its message kind.");
+        return;
+      }
       if (message.kind === "diagnostic") {
         this.onDiagnostic("[XForm Revival]", message.message);
         this.dispatchEvent(new CustomEvent("diagnostic", { detail: message }));
@@ -73,5 +90,6 @@
     }
   }
 
+  root.XFORM_WORKER_PROTOCOL_VERSION = PROTOCOL_VERSION;
   root.XFormEngineClient = XFormEngineClient;
 })();

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>XForm Revival — adapter smoke</title>
+  <script src="../src/components/xforms-components.js"></script>
+  <script src="../src/adapter/xforms-component-adapter.js"></script>
+  <style>body{font:16px/1.4 system-ui;margin:2rem}.pass{color:#146c2e;font-weight:700}.fail{color:#b42318;font-weight:700}</style>
+</head>
+<body>
+  <h1>XForms markup adapter smoke harness</h1>
+  <p id="result">Running…</p>
+  <div id="fixture">
+    <xf:model id="ignored-model"></xf:model>
+    <section>
+      <xf:group id="contact-group">
+        <xf:label>Contact details</xf:label>
+        <xf:hint>All fields are local test data.</xf:hint>
+        <xf:input id="name" data-node-id="0">
+          <xf:label>Display name</xf:label>
+          <xf:hint>Use a recognisable name.</xf:hint>
+        </xf:input>
+        <xf:select1 id="role" data-node-id="1">
+          <xf:label>Role</xf:label>
+          <xf:item><xf:label>Author</xf:label><xf:value>author</xf:value></xf:item>
+          <xf:item><xf:label>Reviewer</xf:label><xf:value>reviewer</xf:value></xf:item>
+          <xf:itemset><xf:item><xf:label>Dynamic</xf:label><xf:value>dynamic</xf:value></xf:item></xf:itemset>
+        </xf:select1>
+        <xf:switch id="detail-switch">
+          <xf:case id="basic"><p>Basic details</p></xf:case>
+          <xf:case id="advanced" selected="true"><p>Advanced details</p></xf:case>
+        </xf:switch>
+      </xf:group>
+    </section>
+  </div>
+  <script>
+    (async () => {
+      "use strict";
+      const fixture = document.querySelector("#fixture");
+      const result = document.querySelector("#result");
+      function assert(condition, message) { if (!condition) throw new Error(message); }
+      try {
+        assert(fixture.querySelector("xf\:input"), "Fixture should retain source markup before opt-in upgrade.");
+        const diagnostics = [];
+        fixture.addEventListener("xforms-adapter-diagnostic", ({detail}) => diagnostics.push(detail));
+        const summary = globalThis.XFormRevival.XFormsComponentAdapter.upgrade(fixture);
+        await Promise.resolve();
+
+        const group = fixture.querySelector("xforms-group#contact-group");
+        const input = fixture.querySelector("xforms-input#name");
+        const select1 = fixture.querySelector("xforms-select1#role");
+        const switchElement = fixture.querySelector("xforms-switch#detail-switch");
+        const basic = fixture.querySelector("xforms-case#basic");
+        const advanced = fixture.querySelector("xforms-case#advanced");
+        assert(summary.upgraded === 6 && summary.skipped === 1, `Unexpected upgrade summary: ${JSON.stringify(summary)}`);
+        assert(group && input && select1 && switchElement && basic && advanced, "Expected source controls and containers to become components.");
+        assert(input.getAttribute("node-id") === "0" && input.getAttribute("control-id") === "name", "Input identity bridge was not preserved.");
+        assert(input.shadowRoot.querySelector("label")?.textContent === "Display name", "Input label was not projected.");
+        assert(group.shadowRoot.querySelector("legend")?.textContent === "Contact details", "Group label was not projected.");
+        const options = select1.shadowRoot.querySelectorAll("option");
+        assert(options.length === 2 && options[0].value === "author" && options[1].value === "reviewer", "Static choice projection included incorrect values.");
+        assert(diagnostics.length === 1 && diagnostics[0].code === "static-itemset-only", "Unsupported itemset was not diagnosed.");
+        assert(basic.hidden && !advanced.hidden && advanced.getAttribute("aria-hidden") === "false", "Source selected case was not projected into the switch.");
+        assert(fixture.querySelector("xf\:model#ignored-model"), "The adapter must leave models to a later integration layer.");
+        result.className = "pass";
+        result.textContent = "PASS: XForms markup adapter upgrades the supported static component subset.";
+        document.title = "XForm Revival — adapter PASS";
+      } catch (error) {
+        result.className = "fail";
+        result.textContent = `FAIL: ${error.message}`;
+        document.title = "XForm Revival — adapter FAIL";
+      }
+    })();
+  </script>
+</body>
+</html>
