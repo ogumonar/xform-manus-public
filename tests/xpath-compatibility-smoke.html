@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>XForm Revival — XPath compatibility smoke</title>
+  <script src="../src/xpath/xpath-compatibility.js"></script>
+  <style>body{font:16px/1.4 system-ui;margin:2rem}.pass{color:#146c2e;font-weight:700}.fail{color:#b42318;font-weight:700}</style>
+</head>
+<body>
+  <h1>XPath 1.0 compatibility harness</h1>
+  <p id="result">Running…</p>
+  <script>
+    (() => {
+      "use strict";
+      const result = document.querySelector("#result");
+      const { inspectXPath10, evaluateXPath10, XPathCompatibilityError } = globalThis.XFormRevival.XPathCompatibility;
+      function assert(condition, message) { if (!condition) throw new Error(message); }
+      function expectsBlocked(expression, code) {
+        try {
+          inspectXPath10(expression);
+          throw new Error(`Expected '${expression}' to be blocked.`);
+        } catch (error) {
+          assert(error instanceof XPathCompatibilityError, `Expected compatibility error for '${expression}'.`);
+          assert(error.code === code, `Expected ${code}, got ${error.code}.`);
+        }
+      }
+      try {
+        const xml = new DOMParser().parseFromString(
+          "<data xmlns:ex='https://example.test/ns'><enabled>true</enabled><item>Ada</item><item>Grace</item><ex:note>names</ex:note></data>",
+          "application/xml"
+        );
+        const context = xml.documentElement;
+        const namespaceResolver = (prefix) => prefix === "ex" ? "https://example.test/ns" : null;
+        const count = evaluateXPath10({ documentNode: xml, contextNode: context, expression: "count(item)", expectedResult: "number" });
+        const condition = evaluateXPath10({ documentNode: xml, contextNode: context, expression: "enabled = 'true' and count(item) = 2", expectedResult: "boolean" });
+        const nodes = evaluateXPath10({ documentNode: xml, contextNode: context, expression: "item", expectedResult: "nodes" });
+        const namespaced = evaluateXPath10({ documentNode: xml, contextNode: context, expression: "string(ex:note)", expectedResult: "string", namespaceResolver });
+        assert(count.value === 2, `Expected XPath 1.0 count 2, got ${count.value}.`);
+        assert(condition.value === true, "Expected XPath 1.0 boolean result.");
+        assert(nodes.value.length === 2 && nodes.value[1].textContent === "Grace", "Expected ordered XPath 1.0 nodes.");
+        assert(namespaced.value === "names", "Expected namespace-aware XPath 1.0 evaluation.");
+        assert(inspectXPath10("contains(., '=> instance of !!')").semantics === "xpath-1.0-compatibility", "String literals must not be classified as syntax.");
+        expectsBlocked("item => count()", "xpath3-arrow");
+        expectsBlocked("item instance of xs:string", "xpath2-keyword");
+        expectsBlocked("(: an XPath 2 comment :) item", "xpath2-comment");
+        result.className = "pass";
+        result.textContent = "PASS: XPath 1.0 compatibility gate and browser evaluator probe passed.";
+        document.title = "XForm Revival — XPath compatibility PASS";
+      } catch (error) {
+        result.className = "fail";
+        result.textContent = `FAIL: ${error.message}`;
+        document.title = "XForm Revival — XPath compatibility FAIL";
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>XForm Revival — discovery worker hydration smoke</title>
+  <script src="../src/xpath/xpath-compatibility.js"></script>
+  <script src="../src/adapter/xforms-model-discovery.js"></script>
+  <script src="../src/worker/xform-engine-client.js"></script>
+  <script src="../src/components/xforms-components.js"></script>
+  <style>body{font:16px/1.4 system-ui;margin:2rem}.pass{color:#146c2e;font-weight:700}.fail{color:#b42318;font-weight:700}</style>
+</head>
+<body>
+  <h1>Discovery-to-worker hydration harness</h1>
+  <xforms-host id="host" discover-model
+    initial-values='[{"nodeId":2,"value":"Grace"}]'
+    initial-model-item-flags='[{"nodeId":2,"flags":15}]'>
+    <xf:model id="contact-model">
+      <xf:instance id="contact-instance"><data>before<person><name>Ada</name></person>after</data></xf:instance>
+    </xf:model>
+    <xforms-input id="root-value" node-id="0" label="Root"></xforms-input>
+    <xforms-input id="name-value" node-id="2" label="Name"></xforms-input>
+  </xforms-host>
+  <p id="result">Running…</p>
+  <script>
+    (() => {
+      "use strict";
+      const host = document.querySelector("#host");
+      const result = document.querySelector("#result");
+      let hydrated = null;
+      function fail(error) {
+        result.className = "fail";
+        result.textContent = `FAIL: ${error.message}`;
+        document.title = "XForm Revival — discovery worker hydration FAIL";
+      }
+      host.addEventListener("xforms-ready", ({detail}) => { hydrated = detail; }, { once: true });
+      host.addEventListener("xforms-diagnostic", ({detail}) => fail(new Error(detail.join(" "))));
+      host.engineClient?.addEventListener("patches", () => {});
+      const waitForPatches = () => {
+        if (!host.engineClient) return queueMicrotask(waitForPatches);
+        host.engineClient.addEventListener("patches", ({detail}) => {
+          try {
+            const rootInput = document.querySelector("#root-value").shadowRoot.querySelector("input");
+            const nameInput = document.querySelector("#name-value").shadowRoot.querySelector("input");
+            const ids = detail.patches.map((patch) => patch.nodeId).join(",");
+            if (hydrated?.nodeCount !== 3 || hydrated?.inlineInstanceNodeCount !== 3) throw new Error(`Host did not hydrate the discovered instance: ${JSON.stringify(hydrated)}.`);
+            if (ids !== "0,1,2" || detail.metrics.fullSnapshot !== true) throw new Error(`Expected full discovered-instance patches 0,1,2; got ${ids}.`);
+            if (rootInput.value !== "beforeafter" || nameInput.value !== "Grace") throw new Error("Discovered inline XML and explicit override did not render.");
+            if (!nameInput.readOnly || !nameInput.required) throw new Error("Explicit model-item projection overlay did not render.");
+            result.className = "pass";
+            result.textContent = "PASS: xforms-host discovers one inline model and hydrates the worker.";
+            document.title = "XForm Revival — discovery worker hydration PASS";
+          } catch (error) {
+            fail(error);
+          }
+        }, { once: true });
+      };
+      waitForPatches();
+    })();
+  </script>
+</body>
+</html>

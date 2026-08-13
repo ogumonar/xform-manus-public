@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>XForm Revival — inline instance worker smoke</title>
+  <script src="../src/worker/xform-engine-client.js"></script>
+  <script src="../src/components/xforms-components.js"></script>
+  <style>body{font:16px/1.4 system-ui;margin:2rem}.pass{color:#146c2e;font-weight:700}.fail{color:#b42318;font-weight:700}</style>
+</head>
+<body>
+  <h1>Inline instance worker hydration harness</h1>
+  <xforms-input id="root-value" node-id="0" label="Root"></xforms-input>
+  <xforms-input id="name-value" node-id="2" label="Name"></xforms-input>
+  <p id="result">Running…</p>
+  <script>
+    (() => {
+      "use strict";
+      const result = document.querySelector("#result");
+      const rootControl = document.querySelector("#root-value");
+      const nameControl = document.querySelector("#name-value");
+      function fail(error) {
+        result.className = "fail";
+        result.textContent = `FAIL: ${error.message}`;
+        document.title = "XForm Revival — inline instance worker FAIL";
+      }
+      function mismatchDiagnostic() {
+        return new Promise((resolve, reject) => {
+          const worker = new Worker("../src/worker/xform-engine-worker.js");
+          const timeout = setTimeout(() => {
+            worker.terminate();
+            reject(new Error("Node-count mismatch did not return a diagnostic."));
+          }, 1500);
+          worker.addEventListener("error", (event) => {
+            clearTimeout(timeout);
+            worker.terminate();
+            reject(new Error(event.message));
+          }, { once: true });
+          worker.addEventListener("message", ({data}) => {
+            clearTimeout(timeout);
+            worker.terminate();
+            resolve(data);
+          }, { once: true });
+          worker.postMessage({
+            protocolVersion: 1,
+            kind: "hydrate",
+            sequence: 90,
+            nodeCount: 1,
+            dependencies: [],
+            initialValues: [],
+            initialModelItemFlags: [],
+            inlineInstanceXml: "<data><name>Ada</name></data>"
+          });
+        });
+      }
+      try {
+        const client = new XFormRevival.XFormEngineClient({ onDiagnostic: () => {} });
+        client.registerComponent(0, rootControl);
+        client.registerComponent(2, nameControl);
+        let hydrated = null;
+        client.addEventListener("hydrated", ({detail}) => { hydrated = detail; }, { once: true });
+        client.addEventListener("patches", async ({detail}) => {
+          try {
+            const ids = detail.patches.map((patch) => patch.nodeId).join(",");
+            const rootPatch = detail.patches.find((patch) => patch.nodeId === 0);
+            const personPatch = detail.patches.find((patch) => patch.nodeId === 1);
+            const namePatch = detail.patches.find((patch) => patch.nodeId === 2);
+            const rootInput = rootControl.shadowRoot.querySelector("input");
+            const nameInput = nameControl.shadowRoot.querySelector("input");
+            if (hydrated?.inlineInstanceNodeCount !== 3 || hydrated?.nodeCount !== 3) throw new Error(`Incorrect hydrated detail: ${JSON.stringify(hydrated)}.`);
+            if (ids !== "0,1,2" || detail.metrics.fullSnapshot !== true || detail.metrics.dirtyNodes !== 0) throw new Error(`Expected full initial patches 0,1,2; got ${ids}.`);
+            if (rootPatch?.state?.value !== "beforeafter" || personPatch?.state?.value !== "" || namePatch?.state?.value !== "Grace") {
+              throw new Error(`Parsed or overridden values are incorrect: ${JSON.stringify(detail.patches)}.`);
+            }
+            if (!namePatch.state.readonly || !namePatch.state.required || !namePatch.state.relevant || !namePatch.state.valid) {
+              throw new Error(`Initial model-item state was not applied: ${JSON.stringify(namePatch.state)}.`);
+            }
+            if (rootInput.value !== "beforeafter" || nameInput.value !== "Grace" || !nameInput.readOnly || !nameInput.required) {
+              throw new Error("Inline instance patch state did not render in components.");
+            }
+            const diagnostic = await mismatchDiagnostic();
+            if (diagnostic.protocolVersion !== 1 || diagnostic.kind !== "diagnostic" || !diagnostic.message.includes("contains 2 element nodes")) {
+              throw new Error(`Node-count mismatch diagnostic is incorrect: ${JSON.stringify(diagnostic)}.`);
+            }
+            client.dispose();
+            result.className = "pass";
+            result.textContent = "PASS: Worker hydrates inline XML into a complete initial component snapshot.";
+            document.title = "XForm Revival — inline instance worker PASS";
+          } catch (error) {
+            client.dispose();
+            fail(error);
+          }
+        }, { once: true });
+        client.hydrate({
+          nodeCount: 3,
+          dependencies: [],
+          initialValues: [{ nodeId: 2, value: "Grace" }],
+          initialModelItemFlags: [{ nodeId: 2, flags: 15 }],
+          inlineInstanceXml: "<data>before<person><name>Ada</name></person>after</data>"
+        });
+      } catch (error) {
+        fail(error);
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -23,7 +23,8 @@ async function boot() {
   const requiredExports = [
     "memory", "xfr_engine_create", "xfr_engine_destroy", "xfr_alloc", "xfr_dealloc",
     "xfr_engine_set_value", "xfr_engine_value_length", "xfr_engine_copy_value",
-    "xfr_engine_set_model_item_flags", "xfr_engine_model_item_flags"
+    "xfr_engine_set_model_item_flags", "xfr_engine_model_item_flags",
+    "xfr_engine_hydrate_inline_instance", "xfr_engine_instance_node_count"
   ];
   if (!requiredExports.every((name) => wasm[name])) throw new Error("Wasm engine exports are incomplete.");
   return wasm;
@@ -106,7 +107,32 @@ function validateHydration(message) {
     }
     return { nodeId, flags };
   });
-  return { nodeCount, dependencies, initialValues, initialModelItemFlags };
+  const inlineInstanceXml = message.inlineInstanceXml ?? null;
+  if (inlineInstanceXml !== null && typeof inlineInstanceXml !== "string") {
+    throw new Error("hydrate.inlineInstanceXml must be a string or null.");
+  }
+  return { nodeCount, dependencies, initialValues, initialModelItemFlags, inlineInstanceXml };
+}
+
+function hydrateInlineInstance(xml) {
+  const bytes = textEncoder.encode(xml);
+  const pointer = bytes.byteLength === 0 ? 0 : wasm.xfr_alloc(bytes.byteLength);
+  try {
+    if (bytes.byteLength) new Uint8Array(wasm.memory.buffer, pointer, bytes.byteLength).set(bytes);
+    const status = wasm.xfr_engine_hydrate_inline_instance(engine, pointer, bytes.byteLength);
+    if (status !== 0) throw new Error(`Unable to hydrate inline XML instance: ${status}.`);
+    return wasm.xfr_engine_instance_node_count(engine);
+  } finally {
+    if (bytes.byteLength) wasm.xfr_dealloc(pointer, bytes.byteLength);
+  }
+}
+
+function initialInstancePatches(nodeCount) {
+  return Array.from({ length: nodeCount }, (_, nodeId) => ({
+    nodeId,
+    version: wasm.xfr_engine_node_version(engine, nodeId),
+    state: { value: readValue(nodeId), ...modelItemState(nodeId) }
+  }));
 }
 
 function setValue(nodeId, value) {
@@ -210,6 +236,12 @@ self.onmessage = async (event) => {
       const hydration = validateHydration(message);
       if (engine) wasm.xfr_engine_destroy(engine);
       engine = wasm.xfr_engine_create(hydration.nodeCount);
+      const inlineInstanceNodeCount = hydration.inlineInstanceXml === null
+        ? null
+        : hydrateInlineInstance(hydration.inlineInstanceXml);
+      if (inlineInstanceNodeCount !== null && inlineInstanceNodeCount !== hydration.nodeCount) {
+        throw new Error(`Inline XML instance contains ${inlineInstanceNodeCount} element nodes, but hydrate.nodeCount is ${hydration.nodeCount}.`);
+      }
       for (const edge of hydration.dependencies) {
         const status = wasm.xfr_engine_add_dependency(engine, edge.source, edge.dependent);
         if (status !== 0) throw new Error(`Invalid dependency ${edge.source} → ${edge.dependent}.`);
@@ -224,9 +256,26 @@ self.onmessage = async (event) => {
         dependencyCount: hydration.dependencies.length,
         initialValueCount: hydration.initialValues.length,
         initialModelItemFlagCount: hydration.initialModelItemFlags.length,
+        ...(inlineInstanceNodeCount === null ? {} : { inlineInstanceNodeCount }),
         metrics: { workerHydrationMs: performance.now() - startedAt }
       });
-      update(lastSequence);
+      if (inlineInstanceNodeCount === null) {
+        update(lastSequence);
+      } else {
+        const patches = initialInstancePatches(hydration.nodeCount);
+        postProtocolMessage({
+          kind: "patches",
+          sequence: lastSequence,
+          patches,
+          metrics: {
+            dirtyNodes: 0,
+            changedNodes: patches.length,
+            transactionVersion: wasm.xfr_engine_transaction_version(engine),
+            workerUpdateMs: performance.now() - startedAt,
+            fullSnapshot: true
+          }
+        });
+      }
       return;
     }
     if (message.kind === "intent") {

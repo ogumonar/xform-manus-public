@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="A public engineering demonstration of the XForm Revival Rust, WebAssembly, worker, and Web Component runtime." />
   <title>XForm Revival — Runtime Lab</title>
+  <script src="src/xpath/xpath-compatibility.js"></script>
+  <script src="src/adapter/xforms-model-discovery.js"></script>
   <script src="src/worker/xform-engine-client.js"></script>
   <script src="src/components/xforms-components.js"></script>
   <script src="src/adapter/xforms-component-adapter.js"></script>
@@ -85,15 +87,17 @@
 
       <section class="grid" aria-label="Live runtime overview">
         <article class="card live">
-          <h2>Live worker-backed control</h2>
-          <p>Initial control state is hydrated into the worker. Edit the value to send a scalar intent through the full browser → worker → Rust → patch path.</p>
-          <div class="runtime-status"><span class="dot" id="status-dot"></span><span id="status-text">Starting worker…</span></div>
-          <xforms-host id="live-host" node-count="2"
-            dependencies='[{"source":0,"dependent":1}]'
-            initial-values='[{"nodeId":0,"value":"Ada"}]'
-            initial-model-item-flags='[{"nodeId":0,"flags":13}]'>
-            <xforms-input node-id="0" label="Display name" hint="Try changing this value."></xforms-input>
-            <xforms-output node-id="1" label="Dependent node"></xforms-output>
+          <h2>Live discovered-model control</h2>
+          <p>An inline <code>xf:model</code> is discovered, serialized, parsed in Rust through WebAssembly, and projected back to these controls. Edit the name to send a scalar intent through the full browser → worker → Rust → patch path.</p>
+          <div class="runtime-status"><span class="dot" id="status-dot"></span><span id="status-text">Preparing discovered model…</span></div>
+          <xforms-host id="live-host" discover-model
+            initial-model-item-flags='[{"nodeId":2,"flags":13}]'>
+            <xf:model id="demo-model">
+              <xf:instance id="demo-instance"><data>Welcome <person><name>Ada</name></person></data></xf:instance>
+            </xf:model>
+            <xforms-output node-id="0" label="Document text"></xforms-output>
+            <xforms-output node-id="1" label="Person container"></xforms-output>
+            <xforms-input node-id="2" label="Display name" hint="Try changing this value."></xforms-input>
           </xforms-host>
           <div class="metrics" aria-label="Latest worker metrics">
             <div class="metric"><span>Transaction</span><strong id="metric-version">—</strong></div>
@@ -105,6 +109,7 @@
           <h2>What is working here</h2>
           <ul>
             <li>Versioned browser ↔ worker messages with structured diagnostics.</li>
+            <li>Inline XForms model discovery into a compact Rust instance snapshot.</li>
             <li>Transactional Rust scalar values and resolved model-item state.</li>
             <li>Accessible input, choice, activation, and container components.</li>
             <li>Opt-in static XForms-markup adaptation for an early presentation subset.</li>
@@ -127,6 +132,10 @@
       <section class="card lab">
         <h2>Verified browser harnesses</h2>
         <div class="lab-grid">
+          <a class="lab-link" href="tests/discovery-worker-hydration-smoke.html"><strong>Discovered model</strong><span>One inline <code>xf:model</code> discovered and hydrated through the worker.</span></a>
+          <a class="lab-link" href="tests/inline-instance-worker-smoke.html"><strong>Inline XML worker</strong><span>Parsed XML topology, projection overlays, and full first patches.</span></a>
+          <a class="lab-link" href="tests/model-discovery-smoke.html"><strong>Model discovery</strong><span>Namespace-aware model, instance, and bind declaration diagnostics.</span></a>
+          <a class="lab-link" href="tests/xpath-compatibility-smoke.html"><strong>XPath compatibility</strong><span>XPath 1.0 gate and native browser evaluator probe.</span></a>
           <a class="lab-link" href="tests/hydration-smoke.html"><strong>Initial hydration</strong><span>Initial scalar values, model-item state, and payload validation.</span></a>
           <a class="lab-link" href="tests/adapter-smoke.html"><strong>Markup adapter</strong><span>Namespace-aware static control and container transformation.</span></a>
           <a class="lab-link" href="tests/components-smoke.html"><strong>Components</strong><span>Accessible projections, intents, containers, and lifecycle behavior.</span></a>
@@ -136,7 +145,7 @@
 
       <section class="scope">
         <strong>Scope statement</strong>
-        <p>This site demonstrates an active modernization effort, not a complete XForms 1.1 processor. XML instances, <code>xf:bind</code>, the XPath 1.0 compatibility layer, actions, repeat context, submissions, and XForms 2.0 extensions remain separately scoped implementation work.</p>
+        <p>This site demonstrates an active modernization effort, not a complete XForms 1.1 processor. Inline XML base-state hydration and a compatibility gate are implemented; <code>xf:bind</code> target resolution and evaluation, actions, repeat context, submissions, and separately scoped native XPath 2.x / XForms 2.0 semantics remain implementation work.</p>
       </section>
     </main>
     <footer>Built from the public demo repository. Browser behavior is exercised in real headless Chromium before publication.</footer>
@@ -155,20 +164,23 @@
       });
       host.addEventListener('xforms-ready', () => {
         dot.className = 'dot ready';
-        status.textContent = 'Worker ready; initial projection applied.';
+        status.textContent = 'Discovered inline model hydrated; applying component projection.';
       });
-      if (!host.engineClient) {
-        dot.className = 'dot error';
-        status.textContent = 'Runtime error: XForms host did not initialize its worker client.';
-      } else {
-        status.textContent = 'Worker client initialized; awaiting hydration.';
-      }
-      host.engineClient?.addEventListener('patches', ({ detail }) => {
-        version.textContent = String(detail.metrics.transactionVersion);
-        dirty.textContent = String(detail.metrics.dirtyNodes);
-        time.textContent = `${detail.metrics.workerUpdateMs.toFixed(2)} ms`;
-        status.textContent = `Applied ${detail.patches.length} ordered component patch${detail.patches.length === 1 ? '' : 'es'}.`;
-      });
+      const attachWorkerMetrics = () => {
+        if (!host.engineClient) {
+          queueMicrotask(attachWorkerMetrics);
+          return;
+        }
+        status.textContent = 'Worker client initialized; awaiting discovered-model hydration.';
+        host.engineClient.addEventListener('patches', ({ detail }) => {
+          version.textContent = String(detail.metrics.transactionVersion);
+          dirty.textContent = String(detail.metrics.dirtyNodes);
+          time.textContent = `${detail.metrics.workerUpdateMs.toFixed(2)} ms`;
+          const snapshot = detail.metrics.fullSnapshot === true ? 'discovered model snapshot' : 'ordered component patch';
+          status.textContent = `Applied ${detail.patches.length} ${snapshot}${detail.patches.length === 1 ? '' : 'es'}.`;
+        });
+      };
+      attachWorkerMetrics();
       host.addEventListener('xforms-diagnostic', ({ detail }) => {
         dot.className = 'dot error';
         status.textContent = `Worker diagnostic: ${detail.join(' ')}`;

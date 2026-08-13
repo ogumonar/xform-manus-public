@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>XForm Revival — model discovery smoke</title>
+  <script src="../src/xpath/xpath-compatibility.js"></script>
+  <script src="../src/adapter/xforms-model-discovery.js"></script>
+  <style>body{font:16px/1.4 system-ui;margin:2rem}.pass{color:#146c2e;font-weight:700}.fail{color:#b42318;font-weight:700}</style>
+</head>
+<body>
+  <h1>XForms model discovery harness</h1>
+  <div id="fixture">
+    <xf:model id="contact-model">
+      <xf:instance id="contact-instance"><data xmlns:ex="https://example.test/ex"><enabled>true</enabled><person><name>Ada</name></person><ex:note>private</ex:note></data></xf:instance>
+      <xf:instance id="external-instance" src="https://example.test/instance.xml"></xf:instance>
+      <xf:bind id="person-bind" nodeset="/data/person" relevant="../enabled = 'true'">
+        <xf:bind id="name-bind" ref="name" type="xsd:string" calculate="normalize-space(.)" required="true()"></xf:bind>
+      </xf:bind>
+      <xf:bind id="missing-target"></xf:bind>
+      <xf:bind id="ambiguous-target" ref="person" nodeset="person"></xf:bind>
+      <xf:bind id="native-syntax" ref="person =&gt; count()"></xf:bind>
+    </xf:model>
+  </div>
+  <p id="result">Running…</p>
+  <script>
+    (() => {
+      "use strict";
+      const fixture = document.querySelector("#fixture");
+      const result = document.querySelector("#result");
+      function assert(condition, message) { if (!condition) throw new Error(message); }
+      try {
+        const diagnostics = [];
+        fixture.addEventListener("xforms-model-diagnostic", ({detail}) => diagnostics.push(detail));
+        const discovery = globalThis.XFormRevival.XFormsModelDiscovery.discover(fixture);
+        assert(discovery.models.length === 1, `Expected one model, got ${discovery.models.length}.`);
+        const model = discovery.models[0];
+        assert(model.sourceId === "contact-model", "Model source id was not preserved.");
+        assert(model.inlineInstances.length === 1, `Expected one inline instance, got ${model.inlineInstances.length}.`);
+        assert(model.inlineInstances[0].sourceId === "contact-instance", "Instance source id was not preserved.");
+        assert(model.inlineInstances[0].nodeCount === 4, `Expected four inline instance elements, got ${model.inlineInstances[0].nodeCount}.`);
+        assert(model.inlineInstances[0].xml.includes("<data") && model.inlineInstances[0].xml.includes("Ada"), "Inline instance XML was not serialized.");
+        assert(model.inlineInstances[0].namespaces.ex === "https://example.test/ex", "In-scope instance namespaces were not captured.");
+        assert(model.bindings.length === 2, `Expected two valid bind declarations, got ${model.bindings.length}.`);
+        const [person, name] = model.bindings;
+        assert(person.sourceId === "person-bind" && person.targetKind === "nodeset" && person.parentBindingIndex === null, "Top-level bind was not normalized.");
+        assert(person.properties.relevant === "../enabled = 'true'", "Relevant property was not preserved.");
+        assert(name.sourceId === "name-bind" && name.targetKind === "ref" && name.parentBindingIndex === 0, "Nested bind parent order was not preserved.");
+        assert(name.datatype === "xsd:string" && name.properties.calculate === "normalize-space(.)" && name.properties.required === "true()", "Bind properties were not normalized.");
+        const codes = diagnostics.map((diagnostic) => diagnostic.code).join(",");
+        assert(codes === "external-instance-deferred,bind-missing-target,bind-ambiguous-target,xpath-compatibility", `Unexpected diagnostics: ${codes}.`);
+        assert(discovery.diagnostics.length === diagnostics.length, "Returned and bubbled diagnostics must agree.");
+        assert(fixture.querySelector("xf\\:model#contact-model"), "Discovery must not replace source model markup.");
+        result.className = "pass";
+        result.textContent = "PASS: XForms model discovery emits validated DOM-free declarations.";
+        document.title = "XForm Revival — model discovery PASS";
+      } catch (error) {
+        result.className = "fail";
+        result.textContent = `FAIL: ${error.message}`;
+        document.title = "XForm Revival — model discovery FAIL";
+      }
+    })();
+  </script>
+</body>
+</html>

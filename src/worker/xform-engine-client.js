@@ -26,8 +26,8 @@
       this.worker.onerror = (event) => this.onDiagnostic("XForms worker error", event.message);
     }
 
-    hydrate({ nodeCount, dependencies = [], initialValues = [], initialModelItemFlags = [] }) {
-      return this.request("hydrate", { nodeCount, dependencies, initialValues, initialModelItemFlags });
+    hydrate({ nodeCount, dependencies = [], initialValues = [], initialModelItemFlags = [], inlineInstanceXml = null }) {
+      return this.request("hydrate", { nodeCount, dependencies, initialValues, initialModelItemFlags, inlineInstanceXml });
     }
 
     registerComponent(nodeId, component) {

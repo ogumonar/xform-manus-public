@@ -345,10 +345,20 @@
       super();
       this.engineClient = null;
       this.componentObserver = null;
+      this.hydrationQueued = false;
     }
 
     connectedCallback() {
-      if (this.engineClient) return;
+      if (this.engineClient || this.hydrationQueued) return;
+      this.hydrationQueued = true;
+      queueMicrotask(() => {
+        this.hydrationQueued = false;
+        if (!this.isConnected || this.engineClient) return;
+        this.initialize();
+      });
+    }
+
+    initialize() {
       if (!root.XFormEngineClient) throw new Error("Load xform-engine-client.js before <xforms-host>.");
       this.engineClient = new root.XFormEngineClient({
         onDiagnostic: (...args) => this.dispatchEvent(new CustomEvent("xforms-diagnostic", { detail: args, bubbles: true, composed: true }))
@@ -358,16 +368,25 @@
       });
       this.bindDescendantComponents();
       this.observeDescendantComponents();
-      const nodeCount = Number(this.getAttribute("node-count") || 0);
+      const configuredNodeCount = Number(this.getAttribute("node-count") || 0);
+      const discoveredInstance = this.hasAttribute("discover-model") ? discoverInlineInstance(this, configuredNodeCount) : null;
+      const nodeCount = discoveredInstance?.nodeCount ?? configuredNodeCount;
       const dependencies = parseDependencies(this.getAttribute("dependencies"));
       const initialValues = parseJsonArray(this.getAttribute("initial-values"), "xforms-host initial-values");
       const initialModelItemFlags = parseJsonArray(this.getAttribute("initial-model-item-flags"), "xforms-host initial-model-item-flags");
-      this.engineClient.hydrate({ nodeCount, dependencies, initialValues, initialModelItemFlags });
+      this.engineClient.hydrate({
+        nodeCount,
+        dependencies,
+        initialValues,
+        initialModelItemFlags,
+        inlineInstanceXml: discoveredInstance?.xml ?? null
+      });
     }
 
     disconnectedCallback() {
       this.componentObserver?.disconnect();
       this.componentObserver = null;
+      this.hydrationQueued = false;
       for (const component of this.querySelectorAll(CONTROL_SELECTOR)) component.bindClient?.(null);
       this.engineClient?.dispose();
       this.engineClient = null;
@@ -392,6 +411,25 @@
       if (node.matches?.(CONTROL_SELECTOR)) node.bindClient?.(this.engineClient);
       for (const component of node.querySelectorAll?.(CONTROL_SELECTOR) || []) component.bindClient?.(this.engineClient);
     }
+  }
+
+  function discoverInlineInstance(host, configuredNodeCount) {
+    if (!root.XFormsModelDiscovery?.discover) {
+      throw new Error("Load xforms-model-discovery.js before using <xforms-host discover-model>.");
+    }
+    const discovery = root.XFormsModelDiscovery.discover(host);
+    if (discovery.models.length !== 1) {
+      throw new Error(`<xforms-host discover-model> requires exactly one discovered xf:model; found ${discovery.models.length}.`);
+    }
+    const [model] = discovery.models;
+    if (model.inlineInstances.length !== 1) {
+      throw new Error(`<xforms-host discover-model> requires exactly one inline xf:instance; found ${model.inlineInstances.length}.`);
+    }
+    const [instance] = model.inlineInstances;
+    if (host.hasAttribute("node-count") && configuredNodeCount !== instance.nodeCount) {
+      throw new Error(`<xforms-host> node-count ${configuredNodeCount} does not match discovered inline instance count ${instance.nodeCount}.`);
+    }
+    return instance;
   }
 
   function extractStatePatch(patch) {

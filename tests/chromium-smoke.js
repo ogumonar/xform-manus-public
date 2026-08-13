@@ -1,5 +1,8 @@
 #!/usr/bin/env node
-/* Real-Chromium smoke checks for the public XForm Revival demo. */
+/*
+ * Real-Chromium smoke checks for the public XForm Revival runtime demo.
+ * The landing page and all harnesses use this repository's root HTTP origin.
+ */
 "use strict";
 
 const { spawn, spawnSync } = require("node:child_process");
@@ -11,8 +14,28 @@ const browser = process.env.CHROMIUM_BIN || "chromium";
 const checks = [
   {
     url: "http://127.0.0.1:4173/",
-    expected: "Adapter upgraded 2 XForms presentation elements.",
-    name: "Public runtime landing page"
+    expected: "Live discovered-model control",
+    name: "Public discovered-model landing page"
+  },
+  {
+    url: "http://127.0.0.1:4173/tests/discovery-worker-hydration-smoke.html",
+    expected: "PASS: xforms-host discovers one inline model and hydrates the worker.",
+    name: "Discovery-to-worker hydration harness"
+  },
+  {
+    url: "http://127.0.0.1:4173/tests/inline-instance-worker-smoke.html",
+    expected: "PASS: Worker hydrates inline XML into a complete initial component snapshot.",
+    name: "Inline instance worker hydration harness"
+  },
+  {
+    url: "http://127.0.0.1:4173/tests/model-discovery-smoke.html",
+    expected: "PASS: XForms model discovery emits validated DOM-free declarations.",
+    name: "XForms model discovery harness"
+  },
+  {
+    url: "http://127.0.0.1:4173/tests/xpath-compatibility-smoke.html",
+    expected: "PASS: XPath 1.0 compatibility gate and browser evaluator probe passed.",
+    name: "XPath 1.0 compatibility harness"
   },
   {
     url: "http://127.0.0.1:4173/tests/hydration-smoke.html",
@@ -47,7 +70,7 @@ const stopServer = () => {
 
 const timer = setTimeout(() => {
   stopServer();
-  console.error("FAIL: test server did not start in time.");
+  console.error("FAIL: public test server did not start in time.");
   process.exit(1);
 }, 5000);
 
@@ -93,7 +116,7 @@ server.stdout.once("data", () => {
 
 server.once("error", (error) => {
   clearTimeout(timer);
-  console.error(`FAIL: unable to start the test server: ${error.message}`);
+  console.error(`FAIL: unable to start the public test server: ${error.message}`);
   process.exitCode = 1;
 });
 
