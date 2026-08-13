@@ -46,6 +46,10 @@
       return this.request("simple-path-query", { path, contextNodes });
     }
 
+    submitCalculatedValues(originSequence, values) {
+      return this.request("calculated-values", { originSequence, values });
+    }
+
     request(kind, body) {
       const sequence = ++this.sequence;
       this.worker.postMessage({ protocolVersion: PROTOCOL_VERSION, kind, sequence, ...body });

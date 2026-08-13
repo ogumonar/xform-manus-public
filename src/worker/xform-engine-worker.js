@@ -130,6 +130,22 @@ function validateSimplePathQuery(message) {
   };
 }
 
+function validateCalculatedValues(message) {
+  if (!Number.isSafeInteger(message.originSequence) || message.originSequence < 0) {
+    throw new Error("calculated-values.originSequence must be a non-negative safe integer.");
+  }
+  const values = message.values;
+  if (!Array.isArray(values) || values.length === 0) throw new Error("calculated-values.values must be a non-empty array.");
+  const seen = new Set();
+  return values.map((entry, index) => {
+    const nodeId = validNodeId(entry?.nodeId, Number.MAX_SAFE_INTEGER, `calculated-values.values[${index}].nodeId`);
+    if (seen.has(nodeId)) throw new Error(`calculated-values.values contains duplicate node ${nodeId}.`);
+    seen.add(nodeId);
+    if (typeof entry?.value !== "string") throw new Error(`calculated-values.values[${index}].value must be a string.`);
+    return { nodeId, value: entry.value };
+  });
+}
+
 function simplePathTargets(path, contextNodes) {
   const pathBytes = textEncoder.encode(path);
   const contextBytes = contextNodes.length * Uint32Array.BYTES_PER_ELEMENT;
@@ -349,6 +365,19 @@ self.onmessage = async (event) => {
         nodeIds,
         projections: projectNodes(nodeIds)
       });
+      return;
+    }
+    if (message.kind === "calculated-values") {
+      assertEngine();
+      const sequence = message.sequence >>> 0;
+      if (sequence <= lastSequence) return;
+      const calculated = validateCalculatedValues(message);
+      if (message.originSequence !== lastSequence) {
+        throw new Error(`Calculated values originate from sequence ${message.originSequence}, but worker is at sequence ${lastSequence}.`);
+      }
+      lastSequence = sequence;
+      for (const value of calculated) setValue(value.nodeId, value.value);
+      update(sequence);
       return;
     }
     if (message.kind === "intent") {
