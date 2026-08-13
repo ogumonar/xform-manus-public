@@ -34,12 +34,13 @@
         const action = Array.from(trigger.children).find((child) => child.namespaceURI === "http://www.w3.org/2002/xforms" && child.localName === "setvalue");
         if (!action) continue;
         const ref = action.getAttribute("ref")?.trim();
-        const literal = action.getAttribute("value");
-        if (!ref || literal === null || literal === "") {
-          this.diagnostic("invalid-setvalue-action", `Trigger '${trigger.id}' requires direct xf:setvalue ref and non-empty value attributes.`);
+        const literal = action.getAttribute("xfr-literal");
+        const expression = action.getAttribute("value")?.trim();
+        if (!ref || (literal === null && !expression) || (literal !== null && expression)) {
+          this.diagnostic("invalid-setvalue-action", `Trigger '${trigger.id}' requires direct xf:setvalue ref and exactly one of value or xfr-literal.`);
           continue;
         }
-        this.actions.set(trigger.id, Object.freeze({ ref, literal }));
+        this.actions.set(trigger.id, Object.freeze({ ref, literal, expression }));
       }
     }
 
@@ -47,8 +48,25 @@
       if (detail?.kind !== "activate") return;
       const action = this.actions.get(detail.controlId);
       if (!action) return;
+      let value;
+      try {
+        value = action.literal !== null
+          ? action.literal
+          : root.XFormsPropertyEvaluator.evaluate({
+            property: "calculate",
+            expression: action.expression,
+            documentNode: this.documentNode,
+            contextNode: this.documentNode.documentElement,
+            contextPosition: 1,
+            contextSize: 1,
+            namespaceResolver: () => null
+          }).value;
+      } catch (error) {
+        this.diagnostic(error.code || "setvalue-value-evaluation", `Setvalue action for '${detail.controlId}' could not evaluate value: ${error.message}`);
+        return;
+      }
       const sequence = this.client.querySimplePath(action.ref);
-      this.pending.set(sequence, action);
+      this.pending.set(sequence, { ...action, value });
     }
 
     applyQuery(message) {
@@ -60,7 +78,7 @@
         this.diagnostic("setvalue-target-cardinality", `Setvalue ref '${action.ref}' resolved to ${nodeIds.length} nodes; exactly one target is required.`);
         return;
       }
-      this.client.intent({ kind: "set-value", nodeId: nodeIds[0], value: action.literal });
+      this.client.intent({ kind: "set-value", nodeId: nodeIds[0], value: action.value });
     }
 
     diagnostic(code, message) {
