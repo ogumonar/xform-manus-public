@@ -374,6 +374,7 @@
       });
       this.engineClient.addEventListener("simple-path-result", (event) => this.applyControlRefResult(event.detail));
       this.engineClient.addEventListener("diagnostic", (event) => this.applyControlRefDiagnostic(event.detail));
+      this.engineClient.addEventListener("patches", (event) => this.applyConstrainedRecalculation(event.detail));
       this.bindDescendantComponents();
       this.observeDescendantComponents();
       const configuredNodeCount = Number(this.getAttribute("node-count") || 0);
@@ -386,6 +387,9 @@
         : []);
       const explicitInitialValues = parseJsonArray(this.getAttribute("initial-values"), "xforms-host initial-values");
       const explicitInitialModelItemFlags = parseJsonArray(this.getAttribute("initial-model-item-flags"), "xforms-host initial-model-item-flags");
+      this.recalculator = this.hasAttribute("recalculate-calculates")
+        ? createConstrainedRecalculator(discoveredModel, this)
+        : null;
       const executed = this.hasAttribute("execute-initial-binds")
         ? executeInitialBinds(discoveredModel, this)
         : { initialValues: [], initialModelItemFlags: [] };
@@ -428,6 +432,20 @@
       if (!ref || Array.from(this.pendingControlRefBindings.values()).some((pending) => pending.component === component)) return;
       const sequence = this.engineClient.querySimplePath(ref);
       this.pendingControlRefBindings.set(sequence, { component, ref });
+    }
+
+    applyConstrainedRecalculation(message) {
+      if (!this.recalculator || !this.hasAttribute("recalculate-calculates")) return;
+      try {
+        this.recalculator.applyPatches(message.sequence, message.patches, (originSequence, values) => {
+          this.engineClient.submitCalculatedValues(originSequence, values);
+        });
+      } catch (error) {
+        this.dispatchEvent(new CustomEvent("xforms-recalculation-diagnostic", {
+          detail: { code: error.code || "recalculation-failed", message: error.message }, bubbles: true, composed: true
+        }));
+        this.recalculator = null;
+      }
     }
 
     applyControlRefResult(message) {
@@ -525,6 +543,15 @@
   function mergeHydrationProjections(generated, explicit) {
     const explicitNodeIds = new Set(explicit.map((entry) => entry?.nodeId));
     return [...generated.filter((entry) => !explicitNodeIds.has(entry.nodeId)), ...explicit];
+  }
+
+  function createConstrainedRecalculator(discoveredModel, host) {
+    if (!host?.hasAttribute("register-static-dependencies")) throw new Error("<xforms-host recalculate-calculates> requires register-static-dependencies.");
+    if (!discoveredModel) throw new Error("<xforms-host recalculate-calculates> requires discover-model and one inline xf:instance.");
+    if (!root.XFormsConstrainedRecalculator?.create) {
+      throw new Error("Load xforms-constrained-recalculator.js before using <xforms-host recalculate-calculates>.");
+    }
+    return root.XFormsConstrainedRecalculator.create({ inlineInstanceXml: discoveredModel.instance.xml, bindings: discoveredModel.bindings });
   }
 
   function mergeDependencies(explicit, extracted) {
