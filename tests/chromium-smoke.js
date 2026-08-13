@@ -38,6 +38,11 @@ const checks = [
     name: "Inline instance worker hydration harness"
   },
   {
+    url: "http://127.0.0.1:4173/tests/bind-target-resolution-smoke.html",
+    expected: "PASS: Discovered bind targets resolve to ordered compact element IDs through the browser model adapter.",
+    name: "Bind target resolution harness"
+  },
+  {
     url: "http://127.0.0.1:4173/tests/model-discovery-smoke.html",
     expected: "PASS: XForms model discovery emits validated DOM-free declarations.",
     name: "XForms model discovery harness"

@@ -44,6 +44,7 @@
         const [person, name] = model.bindings;
         assert(person.sourceId === "person-bind" && person.targetKind === "nodeset" && person.parentBindingIndex === null, "Top-level bind was not normalized.");
         assert(person.properties.relevant === "../enabled = 'true'", "Relevant property was not preserved.");
+        assert(person.namespaces.ex === "https://example.test/ex" && Object.isFrozen(person.namespaces), "Bind namespace context was not captured immutably.");
         assert(name.sourceId === "name-bind" && name.targetKind === "ref" && name.parentBindingIndex === 0, "Nested bind parent order was not preserved.");
         assert(name.datatype === "xsd:string" && name.properties.calculate === "normalize-space(.)" && name.properties.required === "true()", "Bind properties were not normalized.");
         const codes = diagnostics.map((diagnostic) => diagnostic.code).join(",");

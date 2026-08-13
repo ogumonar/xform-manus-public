@@ -131,6 +131,7 @@
               target,
               datatype: bind.getAttribute("type") || null,
               parentBindingIndex,
+              namespaces: namespacesInScope(bind),
               properties: Object.freeze(properties)
             }));
           }

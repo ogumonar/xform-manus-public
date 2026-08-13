@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>XForm Revival — bind target resolution smoke</title>
+  <script src="../src/xpath/xpath-compatibility.js"></script>
+  <script src="../src/adapter/xforms-model-discovery.js"></script>
+  <script src="../src/adapter/xforms-bind-target-resolver.js"></script>
+  <style>body{font:16px/1.4 system-ui;margin:2rem}.pass{color:#146c2e;font-weight:700}.fail{color:#b42318;font-weight:700}</style>
+</head>
+<body>
+  <h1>Discovered bind target resolver harness</h1>
+  <div id="fixture">
+    <xf:model id="bind-model" xmlns:ex="https://example.test/ex">
+      <xf:instance id="bind-instance"><data><person id="first"><name>Ada</name></person><person id="second"><name>Grace</name></person><ex:note>private</ex:note></data></xf:instance>
+      <xf:bind id="first-person" nodeset="/data/person[1]"><xf:bind id="first-name" ref="name"></xf:bind></xf:bind>
+      <xf:bind id="note" nodeset="/data/ex:note"></xf:bind>
+      <xf:bind id="empty" nodeset="/data/missing"></xf:bind>
+    </xf:model>
+  </div>
+  <p id="result">Running…</p>
+  <script>
+    (() => {
+      "use strict";
+      const fixture = document.querySelector("#fixture");
+      const result = document.querySelector("#result");
+      const { XFormsModelDiscovery, XFormsBindTargetResolver, BindTargetResolutionError } = globalThis.XFormRevival;
+      function assert(condition, message) { if (!condition) throw new Error(message); }
+      function expectsFailure(bindings, code) {
+        try {
+          XFormsBindTargetResolver.resolve({ instanceDocument, bindings });
+          throw new Error(`Expected bind resolution to fail with ${code}.`);
+        } catch (error) {
+          assert(error instanceof BindTargetResolutionError, `Expected BindTargetResolutionError, got ${error.name}.`);
+          assert(error.code === code, `Expected ${code}, got ${error.code}.`);
+        }
+      }
+      try {
+        const discovery = XFormsModelDiscovery.discover(fixture);
+        const model = discovery.models[0];
+        const instanceDocument = new DOMParser().parseFromString(model.inlineInstances[0].xml, "application/xml");
+        const resolved = XFormsBindTargetResolver.resolve({ instanceDocument, bindings: model.bindings });
+        assert(model.bindings[2].namespaces.ex === "https://example.test/ex", "Discovery did not preserve the bind namespace context.");
+        assert(resolved.length === 4, `Expected four resolved declarations, got ${resolved.length}.`);
+        assert(resolved[0].nodeIds.join(",") === "1", `Expected first person compact ID 1, got ${resolved[0].nodeIds}.`);
+        assert(resolved[1].nodeIds.join(",") === "2", `Expected nested name compact ID 2, got ${resolved[1].nodeIds}.`);
+        assert(resolved[2].nodeIds.join(",") === "5", `Expected namespaced note compact ID 5, got ${resolved[2].nodeIds}.`);
+        assert(resolved[3].nodeIds.length === 0, "An empty bind target must remain an empty immutable result.");
+        expectsFailure([
+          { sourceId: "many", targetKind: "nodeset", target: "/data/person", parentBindingIndex: null, namespaces: {} },
+          { sourceId: "child", targetKind: "ref", target: "name", parentBindingIndex: 0, namespaces: {} }
+        ], "unsupported-parent-cardinality");
+        expectsFailure([
+          { sourceId: "attribute", targetKind: "nodeset", target: "/data/person[1]/@id", parentBindingIndex: null, namespaces: {} }
+        ], "unsupported-target-node-kind");
+        expectsFailure([
+          { sourceId: "newer", targetKind: "nodeset", target: "/data/person => count()", parentBindingIndex: null, namespaces: {} }
+        ], "xpath-compatibility");
+        result.className = "pass";
+        result.textContent = "PASS: Discovered bind targets resolve to ordered compact element IDs through the browser model adapter.";
+        document.title = "XForm Revival — bind target resolution PASS";
+      } catch (error) {
+        result.className = "fail";
+        result.textContent = `FAIL: ${error.message}`;
+        document.title = "XForm Revival — bind target resolution FAIL";
+      }
+    })();
+  </script>
+</body>
+</html>
