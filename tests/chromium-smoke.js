@@ -38,6 +38,11 @@ const checks = [
     name: "Inline instance worker hydration harness"
   },
   {
+    url: "http://127.0.0.1:4173/tests/static-dependency-hydration-smoke.html",
+    expected: "PASS: Opt-in static dependencies register during discovered-model worker hydration.",
+    name: "Static dependency hydration harness"
+  },
+  {
     url: "http://127.0.0.1:4173/tests/static-dependency-extractor-smoke.html",
     expected: "PASS: Static dependency extraction emits proven compact edges and flags unsupported XPath references.",
     name: "Static dependency extractor harness"

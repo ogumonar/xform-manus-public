@@ -380,7 +380,10 @@
       const discoveredModel = this.hasAttribute("discover-model") ? discoverInlineModel(this, configuredNodeCount) : null;
       const discoveredInstance = discoveredModel?.instance ?? null;
       const nodeCount = discoveredInstance?.nodeCount ?? configuredNodeCount;
-      const dependencies = parseDependencies(this.getAttribute("dependencies"));
+      const explicitDependencies = parseDependencies(this.getAttribute("dependencies"));
+      const dependencies = mergeDependencies(explicitDependencies, this.hasAttribute("register-static-dependencies")
+        ? extractStaticDependencies(discoveredModel, this)
+        : []);
       const explicitInitialValues = parseJsonArray(this.getAttribute("initial-values"), "xforms-host initial-values");
       const explicitInitialModelItemFlags = parseJsonArray(this.getAttribute("initial-model-item-flags"), "xforms-host initial-model-item-flags");
       const executed = this.hasAttribute("execute-initial-binds")
@@ -522,6 +525,29 @@
   function mergeHydrationProjections(generated, explicit) {
     const explicitNodeIds = new Set(explicit.map((entry) => entry?.nodeId));
     return [...generated.filter((entry) => !explicitNodeIds.has(entry.nodeId)), ...explicit];
+  }
+
+  function mergeDependencies(explicit, extracted) {
+    const edges = new Map();
+    for (const edge of [...explicit, ...extracted]) edges.set(`${edge.source}:${edge.dependent}`, edge);
+    return [...edges.values()];
+  }
+
+  function extractStaticDependencies(discoveredModel, host) {
+    if (!discoveredModel) throw new Error("<xforms-host register-static-dependencies> requires discover-model and one inline xf:instance.");
+    if (!root.XFormsBindTargetResolver?.resolve || !root.XFormsStaticDependencyExtractor?.extract) {
+      throw new Error("Load xforms-bind-target-resolver.js and xforms-static-dependency-extractor.js before using <xforms-host register-static-dependencies>.");
+    }
+    const instanceDocument = new DOMParser().parseFromString(discoveredModel.instance.xml, "application/xml");
+    const resolvedBindings = root.XFormsBindTargetResolver.resolve({ instanceDocument, bindings: discoveredModel.bindings });
+    const extracted = root.XFormsStaticDependencyExtractor.extract({ instanceDocument, bindings: discoveredModel.bindings, resolvedBindings });
+    if (extracted.diagnostics.length) {
+      host.dispatchEvent(new CustomEvent("xforms-static-dependency-diagnostic", {
+        detail: extracted.diagnostics, bubbles: true, composed: true
+      }));
+      return [];
+    }
+    return extracted.edges;
   }
 
   function extractStatePatch(patch) {
