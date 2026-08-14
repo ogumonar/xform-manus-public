@@ -31,11 +31,18 @@
     }
 
     registerComponent(nodeId, component) {
-      this.components.set(Number(nodeId), component);
+      const key = Number(nodeId);
+      const components = this.components.get(key) || new Set();
+      components.add(component);
+      this.components.set(key, components);
     }
 
     unregisterComponent(nodeId, component) {
-      if (this.components.get(Number(nodeId)) === component) this.components.delete(Number(nodeId));
+      const key = Number(nodeId);
+      const components = this.components.get(key);
+      if (!components) return;
+      components.delete(component);
+      if (!components.size) this.components.delete(key);
     }
 
     intent(intent) {
@@ -90,8 +97,7 @@
       if (message.kind === "patches") {
         this.lastApplied = message.sequence;
         for (const patch of message.patches) {
-          const component = this.components.get(Number(patch.nodeId));
-          component?.applyEnginePatch?.(patch);
+          for (const component of this.components.get(Number(patch.nodeId)) || []) component?.applyEnginePatch?.(patch);
         }
         this.dispatchEvent(new CustomEvent("patches", { detail: message }));
       } else {

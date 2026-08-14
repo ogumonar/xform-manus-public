@@ -113,6 +113,7 @@
             <li>Opt-in automatic association of unambiguous strict <code>ref</code> paths with compact nodes.</li>
             <li>Browser model-adapter resolution of discovered XPath 1.0 bind targets to compact element IDs.</li>
             <li>Transactional Rust scalar values and resolved model-item state.</li>
+            <li>One worker patch fans out to every component bound to the same compact node.</li>
             <li>Typed browser-side XPath 1.0 property evaluation over explicit singleton contexts.</li>
             <li>Opt-in initial bind calculations and model-item projections applied during worker hydration.</li>
             <li>Conservative static compact-ID dependency extraction with explicit unsupported-reference diagnostics.</li>
@@ -174,6 +175,7 @@
           <a class="lab-link" href="tests/xpath-compatibility-smoke.html"><strong>XPath compatibility</strong><span>XPath 1.0 gate and native browser evaluator probe.</span></a>
           <a class="lab-link" href="tests/hydration-smoke.html"><strong>Initial hydration</strong><span>Initial scalar values, model-item state, and payload validation.</span></a>
           <a class="lab-link" href="tests/adapter-smoke.html"><strong>Markup adapter</strong><span>Namespace-aware static transformation, including inert template controls with passive authored <code>ref</code> preservation.</span></a>
+          <a class="lab-link" href="tests/multi-component-projection-smoke.html"><strong>Shared-node projection</strong><span>One worker update reaches every view component registered for one compact node.</span></a>
           <a class="lab-link" href="tests/components-smoke.html"><strong>Components</strong><span>Accessible projections, intents, containers, and lifecycle behavior.</span></a>
           <a class="lab-link" href="tests/wasm-worker.html"><strong>Wasm worker</strong><span>Protocol checks, dependency propagation, and scalar value round-trip.</span></a>
         </div>

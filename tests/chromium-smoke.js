@@ -153,6 +153,11 @@ const checks = [
     name: "XForms markup adapter harness"
   },
   {
+    url: "http://127.0.0.1:4173/tests/multi-component-projection-smoke.html",
+    expected: "PASS: One worker patch projects to every component registered for a compact node.",
+    name: "Multi-component projection harness"
+  },
+  {
     url: "http://127.0.0.1:4173/tests/components-smoke.html",
     expected: 'data-harness-status="pass"',
     name: "Web Component harness"
