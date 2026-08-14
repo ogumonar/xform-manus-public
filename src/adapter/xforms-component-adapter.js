@@ -26,6 +26,7 @@
   });
   const CONTAINER_ELEMENTS = new Set(["group", "switch", "case"]);
   const VALUE_CONTROL_ELEMENTS = new Set(["input", "secret", "textarea", "range", "output", "select", "select1"]);
+  const ACTION_ELEMENTS = new Set(["action", "setvalue", "insert", "delete", "setindex", "toggle", "setfocus", "dispatch", "rebuild", "recalculate", "revalidate", "refresh", "reset", "send", "load", "message"]);
   const PRESENTATION_CHILDREN = new Set(["label", "hint", "alert", "value", "item", "choices", "itemset"]);
   const SKIPPED_ELEMENTS = new Set(["model", "instance", "bind", "itemset", "submission"]);
 
@@ -140,6 +141,15 @@
         }
       };
 
+      const actionDeclarationTemplate = (source) => {
+        const actions = Array.from(source.children).filter((child) => isXForms(child) && ACTION_ELEMENTS.has(localName(child)));
+        if (!actions.length) return null;
+        const template = source.ownerDocument.createElement("template");
+        template.setAttribute("data-xforms-action-declarations", "");
+        for (const action of actions) template.content.append(action.cloneNode(true));
+        return template;
+      };
+
       const upgradeRepeat = (source) => {
         if (!source.parentNode) return;
         const bindId = source.getAttribute("bind")?.trim();
@@ -175,6 +185,7 @@
         }
 
         const sourcePresentation = presentation(source);
+        const actionDeclarations = name === "trigger" ? actionDeclarationTemplate(source) : null;
         const selectedCase = name === "switch"
           ? caseIdentifier(directChildren(source, "case").find((candidate) => candidate.getAttribute("selected") === "true"))
           : null;
@@ -200,6 +211,7 @@
 
         source.replaceWith(destination);
         if (CONTAINER_ELEMENTS.has(name)) moveContainerContent(source, destination);
+        if (actionDeclarations) destination.append(actionDeclarations);
         const state = { ...sourcePresentation };
         if (name === "select" || name === "select1") state.choices = staticChoices(source);
         destination.setControlState?.(state);

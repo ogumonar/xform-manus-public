@@ -48,6 +48,11 @@ const checks = [
     name: "Primitive type validation harness"
   },
   {
+    url: "http://127.0.0.1:4173/tests/adapted-message-action-smoke.html",
+    expected: "PASS: Adapted source trigger message declarations remain available to the direct message bridge.",
+    name: "Adapted message action harness"
+  },
+  {
     url: "http://127.0.0.1:4173/tests/constrained-message-action-smoke.html",
     expected: "PASS: Direct message actions emit one structured host message event.",
     name: "Constrained message action harness"
