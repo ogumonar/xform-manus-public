@@ -10,6 +10,7 @@
   class XFormsSetFocusActionBridge {
     static create({ host } = {}) {
       if (!host) throw new SetFocusActionError("missing-action-host", "Setfocus action bridge requires a host.");
+      if (!root.XFormsActionDeclarationSource?.collect) throw new SetFocusActionError("action-declaration-source-unavailable", "Load xforms-action-declaration-source.js before xforms-setfocus-action-bridge.js.");
       return new XFormsSetFocusActionBridge(host);
     }
 
@@ -22,8 +23,8 @@
     }
 
     discover() {
-      for (const trigger of this.host.querySelectorAll("xf\\:trigger[id]")) {
-        const action = Array.from(trigger.children).find((child) => child.namespaceURI === "http://www.w3.org/2002/xforms" && child.localName === "setfocus");
+      for (const { trigger, actionChildren } of root.XFormsActionDeclarationSource.collect(this.host)) {
+        const action = actionChildren.find((child) => child.namespaceURI === "http://www.w3.org/2002/xforms" && child.localName === "setfocus");
         if (!action) continue;
         const controlId = action.getAttribute("control")?.trim();
         if (!controlId) {

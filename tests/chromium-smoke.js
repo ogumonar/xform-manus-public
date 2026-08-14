@@ -78,6 +78,11 @@ const checks = [
     name: "Constrained reset action harness"
   },
   {
+    url: "http://127.0.0.1:4173/tests/adapted-setfocus-action-smoke.html",
+    expected: "PASS: Adapted source trigger setfocus declarations delegate through target components.",
+    name: "Adapted setfocus action harness"
+  },
+  {
     url: "http://127.0.0.1:4173/tests/constrained-setfocus-action-smoke.html",
     expected: "PASS: Direct setfocus actions delegate focus through the target component.",
     name: "Constrained setfocus action harness"
