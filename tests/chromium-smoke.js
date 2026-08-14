@@ -38,6 +38,11 @@ const checks = [
     name: "Inline instance worker hydration harness"
   },
   {
+    url: "http://127.0.0.1:4173/tests/constrained-toggle-action-smoke.html",
+    expected: "PASS: Direct toggle actions update switch case projection without worker mutation.",
+    name: "Constrained toggle action harness"
+  },
+  {
     url: "http://127.0.0.1:4173/tests/constrained-setindex-action-smoke.html",
     expected: "PASS: Direct setindex actions update one projected repeat index without worker mutation.",
     name: "Constrained setindex action harness"

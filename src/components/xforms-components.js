@@ -420,6 +420,7 @@
       this.pendingControlRefBindings = new Map();
       this.actionBridge = null;
       this.setIndexActionBridge = null;
+      this.toggleActionBridge = null;
     }
 
     connectedCallback() {
@@ -451,6 +452,7 @@
       const discoveredInstance = discoveredModel?.instance ?? null;
       if (this.hasAttribute("enable-setvalue-actions")) this.actionBridge = createSetValueActionBridge(discoveredModel, this, this.engineClient);
       if (this.hasAttribute("enable-setindex-actions")) this.setIndexActionBridge = createSetIndexActionBridge(this);
+      if (this.hasAttribute("enable-toggle-actions")) this.toggleActionBridge = createToggleActionBridge(this);
       if (this.hasAttribute("project-repeats")) projectDiscoveredRepeats(discoveredModel, this);
       const nodeCount = discoveredInstance?.nodeCount ?? configuredNodeCount;
       const explicitDependencies = parseDependencies(this.getAttribute("dependencies"));
@@ -483,6 +485,8 @@
       this.actionBridge = null;
       this.setIndexActionBridge?.dispose();
       this.setIndexActionBridge = null;
+      this.toggleActionBridge?.dispose();
+      this.toggleActionBridge = null;
       for (const component of this.querySelectorAll(CONTROL_SELECTOR)) component.bindClient?.(null);
       this.engineClient?.dispose();
       this.engineClient = null;
@@ -622,6 +626,13 @@
   function mergeHydrationProjections(generated, explicit) {
     const explicitNodeIds = new Set(explicit.map((entry) => entry?.nodeId));
     return [...generated.filter((entry) => !explicitNodeIds.has(entry.nodeId)), ...explicit];
+  }
+
+  function createToggleActionBridge(host) {
+    if (!root.XFormsToggleActionBridge?.create) {
+      throw new Error("Load xforms-toggle-action-bridge.js before using <xforms-host enable-toggle-actions>.");
+    }
+    return root.XFormsToggleActionBridge.create({ host });
   }
 
   function createSetIndexActionBridge(host) {
