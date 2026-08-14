@@ -14,8 +14,8 @@
 
   class XFormsConstrainedRecalculator {
     static create({ inlineInstanceXml, bindings } = {}) {
-      if (!root.XFormsBindTargetResolver?.resolve || !root.XFormsStaticDependencyExtractor?.extract || !root.XFormsPropertyEvaluator?.evaluate) {
-        throw new ConstrainedRecalculationError("dependencies-unavailable", "Load bind target resolver, static dependency extractor, and property evaluator before the constrained recalculator.");
+      if (!root.XFormsBindTargetResolver?.resolve || !root.XFormsStaticDependencyExtractor?.extract || !root.XFormsPropertyEvaluator?.evaluate || !root.XFormsPrimitiveTypeValidator?.validate) {
+        throw new ConstrainedRecalculationError("dependencies-unavailable", "Load bind target resolver, static dependency extractor, property evaluator, and primitive type validator before the constrained recalculator.");
       }
       const instanceDocument = new DOMParser().parseFromString(inlineInstanceXml, "application/xml");
       if (instanceDocument.querySelector("parsererror")) throw new ConstrainedRecalculationError("invalid-instance", "Cannot parse inline XML for constrained recalculation.");
@@ -29,12 +29,12 @@
         const binding = bindings[index];
         const targets = byIndex.get(index)?.nodeIds || [];
         const hasCalculate = Boolean(binding?.properties?.calculate);
-        const hasState = BOOLEAN_PROPERTIES.some((property) => binding?.properties?.[property]);
+        const hasState = BOOLEAN_PROPERTIES.some((property) => binding?.properties?.[property]) || Boolean(binding?.datatype);
         if (!hasCalculate && !hasState) continue;
         if (targets.length !== 1) throw new ConstrainedRecalculationError("unsupported-binding-target-cardinality", `Executable binding ${index} has ${targets.length} targets.`);
         const target = targets[0];
         if (hasCalculate) calculations.set(target, { expression: binding.properties.calculate, namespaces: binding.namespaces || {}, declarationIndex: index });
-        if (hasState) stateProperties.set(target, { properties: binding.properties, namespaces: binding.namespaces || {}, declarationIndex: index });
+        if (hasState) stateProperties.set(target, { properties: binding.properties, datatype: binding.datatype || null, namespaces: binding.namespaces || {}, declarationIndex: index });
       }
       return new XFormsConstrainedRecalculator(instanceDocument, extracted.edges, calculations, stateProperties);
     }
@@ -67,6 +67,7 @@
       if (sequence <= this.lastSubmissionSequence) return false;
       const changed = new Set(patches.map((patch) => patch.nodeId));
       const calculationTargets = this.targetsFor(changed, this.calculations);
+      for (const nodeId of changed) if (this.stateProperties.has(nodeId)) this.pendingStateTargets.add(nodeId);
       for (const target of this.targetsFor(changed, this.stateProperties)) this.pendingStateTargets.add(target);
       const values = [];
       for (const nodeId of calculationTargets) {
@@ -85,9 +86,10 @@
       const entries = [];
       for (const nodeId of [...this.pendingStateTargets].sort((left, right) => this.stateProperties.get(left).declarationIndex - this.stateProperties.get(right).declarationIndex)) {
         const definition = this.stateProperties.get(nodeId);
-        const state = { relevant: true, readonly: false, required: false, constraint: true };
+        const state = { relevant: true, readonly: false, required: false, constraint: true, datatype: true };
         for (const property of BOOLEAN_PROPERTIES) if (definition.properties[property]) state[property] = this.evaluate(property, definition.properties[property], nodeId, definition.namespaces);
-        const valid = !state.relevant || ((!state.required || this.elements[nodeId].textContent.trim().length > 0) && state.constraint);
+        if (definition.datatype) state.datatype = root.XFormsPrimitiveTypeValidator.validate({ datatype: definition.datatype, namespaces: definition.namespaces, value: this.elements[nodeId].textContent }).valid;
+        const valid = !state.relevant || ((!state.required || this.elements[nodeId].textContent.trim().length > 0) && state.constraint && state.datatype);
         const flags = flagsFor({ ...state, valid });
         if (flags !== this.projectedFlags.get(nodeId)) entries.push({ nodeId, flags });
         this.pendingStateTargets.delete(nodeId);

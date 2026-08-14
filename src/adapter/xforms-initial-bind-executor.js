@@ -76,8 +76,8 @@
 
   class XFormsInitialBindExecutor {
     static execute({ inlineInstanceXml, bindings } = {}) {
-      if (!root.XFormsBindTargetResolver?.resolve || !root.XFormsPropertyEvaluator?.evaluate) {
-        fail("execution-dependencies-unavailable", "Load bind-target resolver and property evaluator modules before xforms-initial-bind-executor.js.");
+      if (!root.XFormsBindTargetResolver?.resolve || !root.XFormsPropertyEvaluator?.evaluate || !root.XFormsPrimitiveTypeValidator?.validate) {
+        fail("execution-dependencies-unavailable", "Load bind-target resolver, property evaluator, and primitive type validator modules before xforms-initial-bind-executor.js.");
       }
       if (!Array.isArray(bindings)) throw new TypeError("Initial bind execution requires an ordered bindings array.");
       const instanceDocument = parseInlineInstance(inlineInstanceXml);
@@ -117,8 +117,18 @@
             const expression = binding?.properties?.[property];
             if (!expression) continue;
             claim(claimed, nodeId, property, bindingIndex);
-            state = state || { relevant: true, readonly: false, required: false, constraint: true };
+            state = state || { relevant: true, readonly: false, required: false, constraint: true, datatype: true };
             state[property] = evaluate(property, expression, instanceDocument, element, (prefix) => binding.namespaces?.[prefix] ?? null);
+            states.set(nodeId, state);
+          }
+          if (binding?.datatype) {
+            claim(claimed, nodeId, "type", bindingIndex);
+            state = state || { relevant: true, readonly: false, required: false, constraint: true, datatype: true };
+            try {
+              state.datatype = root.XFormsPrimitiveTypeValidator.validate({ datatype: binding.datatype, namespaces: binding.namespaces, value: element.textContent }).valid;
+            } catch (error) {
+              fail("datatype-validation-failed", `Could not validate type '${binding.datatype}': ${error.message}`, error);
+            }
             states.set(nodeId, state);
           }
         }
@@ -126,7 +136,7 @@
 
       const initialModelItemFlags = Array.from(states, ([nodeId, state]) => {
         const element = elements[nodeId];
-        const valid = !state.relevant || ((!state.required || element.textContent.trim().length > 0) && state.constraint);
+        const valid = !state.relevant || ((!state.required || element.textContent.trim().length > 0) && state.constraint && state.datatype !== false);
         return Object.freeze({
           nodeId,
           flags: flagsFor({ relevant: state.relevant, readonly: state.readonly, required: state.required, valid })
