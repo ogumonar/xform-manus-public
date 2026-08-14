@@ -21,7 +21,8 @@
     submit: "xforms-submit",
     group: "xforms-group",
     switch: "xforms-switch",
-    case: "xforms-case"
+    case: "xforms-case",
+    repeat: "xforms-repeat"
   });
   const CONTAINER_ELEMENTS = new Set(["group", "switch", "case"]);
   const PRESENTATION_CHILDREN = new Set(["label", "hint", "alert", "value", "item", "choices", "itemset"]);
@@ -138,8 +139,34 @@
         }
       };
 
+      const upgradeRepeat = (source) => {
+        if (!source.parentNode) return;
+        const bindId = source.getAttribute("bind")?.trim();
+        if (!bindId) {
+          report("repeat-bind-required", "xf:repeat requires a non-empty bind attribute for static adaptation.", source);
+          summary.skipped += 1;
+          return;
+        }
+        if (!customElements.get("xforms-repeat")) {
+          throw new Error("Load xforms-components.js before upgrading <xf:repeat>.");
+        }
+        const destination = source.ownerDocument.createElement("xforms-repeat");
+        if (source.id) destination.id = source.id;
+        destination.setAttribute("bind-id", bindId);
+        const template = source.ownerDocument.createElement("template");
+        for (const child of Array.from(source.childNodes)) template.content.append(child);
+        destination.append(template);
+        source.replaceWith(destination);
+        upgradeChildren(template.content);
+        summary.upgraded += 1;
+      };
+
       const upgradeElement = (source) => {
         const name = localName(source);
+        if (name === "repeat") {
+          upgradeRepeat(source);
+          return;
+        }
         const componentName = COMPONENT_BY_ELEMENT[name];
         if (!componentName || !source.parentNode) return;
         if (!customElements.get(componentName)) {

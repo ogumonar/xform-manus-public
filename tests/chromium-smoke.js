@@ -83,6 +83,11 @@ const checks = [
     name: "Discovered repeat projection harness"
   },
   {
+    url: "http://127.0.0.1:4173/tests/source-repeat-adaptation-smoke.html",
+    expected: "PASS: Source xf:repeat bind markup adapts into projected occurrence-local controls.",
+    name: "Source repeat adaptation harness"
+  },
+  {
     url: "http://127.0.0.1:4173/tests/adapted-repeat-occurrence-context-smoke.html",
     expected: "PASS: Adapted repeat template controls bind to occurrence-local worker targets.",
     name: "Adapted repeat occurrence context harness"
