@@ -31,6 +31,7 @@
           <xf:case id="advanced" selected="true"><p>Advanced details</p></xf:case>
         </xf:switch>
       </xf:group>
+      <xforms-repeat id="template-repeat"><template><xf:input id="template-name" ref="name"><xf:label>Template name</xf:label><xf:hint>Cloned later by a repeat.</xf:hint></xf:input></template></xforms-repeat>
     </section>
   </div>
   <script>
@@ -52,10 +53,12 @@
         const switchElement = fixture.querySelector("xforms-switch#detail-switch");
         const basic = fixture.querySelector("xforms-case#basic");
         const advanced = fixture.querySelector("xforms-case#advanced");
-        assert(summary.upgraded === 6 && summary.skipped === 1, `Unexpected upgrade summary: ${JSON.stringify(summary)}`);
+        const templateInput = fixture.querySelector("#template-repeat template").content.querySelector("xforms-input#template-name");
+        assert(summary.upgraded === 7 && summary.skipped === 1, `Unexpected upgrade summary: ${JSON.stringify(summary)}`);
         assert(group && input && select1 && switchElement && basic && advanced, "Expected source controls and containers to become components.");
         assert(input.getAttribute("node-id") === "0" && input.getAttribute("control-id") === "name", "Input identity bridge was not preserved.");
         assert(group.getAttribute("ref") === "/data/contact" && input.getAttribute("ref") === "name" && select1.getAttribute("ref") === "role", "Explicit source ref metadata was not preserved on adapted components.");
+        assert(templateInput?.getAttribute("ref") === "name" && templateInput.shadowRoot.querySelector("label")?.textContent === "Template name", "Template content was not upgraded with preserved ref metadata.");
         assert(input.shadowRoot.querySelector("label")?.textContent === "Display name", "Input label was not projected.");
         assert(group.shadowRoot.querySelector("legend")?.textContent === "Contact details", "Group label was not projected.");
         const options = select1.shadowRoot.querySelectorAll("option");

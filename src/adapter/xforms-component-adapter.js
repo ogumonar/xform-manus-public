@@ -39,6 +39,10 @@
     return matched && (!expected || localName(element) === expected);
   }
 
+  function isTemplate(element) {
+    return element?.nodeType === Node.ELEMENT_NODE && element.localName?.toLowerCase() === "template" && element.content;
+  }
+
   function directChildren(element, expected) {
     return Array.from(element.children).filter((child) => isXForms(child, expected));
   }
@@ -111,7 +115,11 @@
       };
 
       const upgradeChildren = (source) => {
-        for (const child of Array.from(source.children)) {
+        for (const child of Array.from(source.children || [])) {
+          if (isTemplate(child)) {
+            upgradeChildren(child.content);
+            continue;
+          }
           if (!isXForms(child)) {
             upgradeChildren(child);
             continue;
@@ -169,7 +177,8 @@
         summary.upgraded += 1;
       };
 
-      if (isXForms(scope) && COMPONENT_BY_ELEMENT[localName(scope)]) upgradeElement(scope);
+      if (isTemplate(scope)) upgradeChildren(scope.content);
+      else if (isXForms(scope) && COMPONENT_BY_ELEMENT[localName(scope)]) upgradeElement(scope);
       else upgradeChildren(scope);
       return Object.freeze({
         upgraded: summary.upgraded,

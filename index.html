@@ -128,7 +128,7 @@
             <li>Opt-in direct <code>xf:setfocus</code> actions delegated through target components.</li>
             <li>Opt-in direct <code>xf:reset</code> actions that restore the worker-held hydration baseline.</li>
             <li>Accessible input, choice, activation, and container components.</li>
-            <li>Opt-in static XForms-markup adaptation for an early presentation subset, with passive explicit <code>ref</code> metadata preservation.</li>
+            <li>Opt-in static XForms-markup adaptation for an early presentation subset, including inert template content and passive explicit <code>ref</code> metadata preservation.</li>
           </ul>
         </aside>
       </section>
@@ -172,7 +172,7 @@
           <a class="lab-link" href="tests/xforms-property-evaluator-smoke.html"><strong>Property evaluator</strong><span>Typed scalar properties, namespace context, safe <code>if()</code>/<code>choose()</code>, and deferred-function diagnostics.</span></a>
           <a class="lab-link" href="tests/xpath-compatibility-smoke.html"><strong>XPath compatibility</strong><span>XPath 1.0 gate and native browser evaluator probe.</span></a>
           <a class="lab-link" href="tests/hydration-smoke.html"><strong>Initial hydration</strong><span>Initial scalar values, model-item state, and payload validation.</span></a>
-          <a class="lab-link" href="tests/adapter-smoke.html"><strong>Markup adapter</strong><span>Namespace-aware static control and container transformation with passive authored <code>ref</code> preservation.</span></a>
+          <a class="lab-link" href="tests/adapter-smoke.html"><strong>Markup adapter</strong><span>Namespace-aware static transformation, including inert template controls with passive authored <code>ref</code> preservation.</span></a>
           <a class="lab-link" href="tests/components-smoke.html"><strong>Components</strong><span>Accessible projections, intents, containers, and lifecycle behavior.</span></a>
           <a class="lab-link" href="tests/wasm-worker.html"><strong>Wasm worker</strong><span>Protocol checks, dependency propagation, and scalar value round-trip.</span></a>
         </div>
@@ -180,7 +180,7 @@
 
       <section class="scope">
         <strong>Scope statement</strong>
-        <p>This site demonstrates an active modernization effort, not a complete XForms 1.1 processor. Inline XML base-state hydration, a compatibility gate, opt-in exact-one strict child-path <code>ref</code> association, passive authored <code>ref</code> preservation during static markup adaptation, discovered bind-target mapping, opt-in initial calculated/property projections under singleton parent contexts, and a constrained lexical subset for explicit <code>xs:</code>/<code>xsd:</code> primitive bind types are implemented. General dependency-driven post-intent recalculation and revalidation, full XML Schema validation (including derived types, facets, lists, and unions), general repeat binding context beyond the demonstrated item and one-child forms, nested/dynamic repeats, general action/event processing beyond the demonstrated direct bridges, complete XForms reset-event sequencing, model-level repeat index semantics, general switch/action sequencing, repeat-aware focus resolution, submissions, and separately scoped native XPath 2.x / XForms 2.0 semantics remain implementation work; the demonstrated singleton calculated/value-state and top-level keyed repeat projection subsets are intentionally narrower.</p>
+        <p>This site demonstrates an active modernization effort, not a complete XForms 1.1 processor. Inline XML base-state hydration, a compatibility gate, opt-in exact-one strict child-path <code>ref</code> association, passive authored <code>ref</code> preservation and inert template adaptation during static markup transformation, discovered bind-target mapping, opt-in initial calculated/property projections under singleton parent contexts, and a constrained lexical subset for explicit <code>xs:</code>/<code>xsd:</code> primitive bind types are implemented. General dependency-driven post-intent recalculation and revalidation, full XML Schema validation (including derived types, facets, lists, and unions), general repeat binding context beyond the demonstrated item and one-child forms, nested/dynamic repeats, general action/event processing beyond the demonstrated direct bridges, complete XForms reset-event sequencing, model-level repeat index semantics, general switch/action sequencing, repeat-aware focus resolution, submissions, and separately scoped native XPath 2.x / XForms 2.0 semantics remain implementation work; the demonstrated singleton calculated/value-state and top-level keyed repeat projection subsets are intentionally narrower.</p>
       </section>
     </main>
     <footer>Built from the public demo repository. Browser behavior is exercised in real headless Chromium before publication.</footer>
