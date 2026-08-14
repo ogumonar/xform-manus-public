@@ -25,8 +25,14 @@
     }
 
     discover() {
-      for (const trigger of this.host.querySelectorAll("xf\\:trigger[id]")) {
-        const actions = Array.from(trigger.children).filter((child) => child.namespaceURI === XFORMS_NAMESPACE && ACTION_ELEMENTS.has(child.localName));
+      const sourceTriggers = Array.from(this.host.querySelectorAll("xf\\:trigger[id]"));
+      const adaptedTriggers = Array.from(this.host.querySelectorAll("xforms-trigger[id]")).filter((trigger) =>
+        Array.from(trigger.children).some((child) => child.localName === "template" && child.hasAttribute("data-xforms-action-declarations"))
+      );
+      for (const trigger of [...sourceTriggers, ...adaptedTriggers]) {
+        const declarationTemplate = Array.from(trigger.children).find((child) => child.localName === "template" && child.hasAttribute("data-xforms-action-declarations"));
+        const actionChildren = declarationTemplate ? Array.from(declarationTemplate.content.children) : Array.from(trigger.children);
+        const actions = actionChildren.filter((child) => child.namespaceURI === XFORMS_NAMESPACE && ACTION_ELEMENTS.has(child.localName));
         if (!actions.length) continue;
         if (actions.length !== 1 || actions[0].localName !== "reset") {
           this.diagnostic("unsupported-reset-action-shape", `Trigger '${trigger.id}' must contain exactly one direct xf:reset action in this constrained bridge.`);

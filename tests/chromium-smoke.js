@@ -68,6 +68,11 @@ const checks = [
     name: "Constrained dispatch action harness"
   },
   {
+    url: "http://127.0.0.1:4173/tests/adapted-reset-action-smoke.html",
+    expected: "PASS: Adapted source trigger reset declarations restore the worker baseline.",
+    name: "Adapted reset action harness"
+  },
+  {
     url: "http://127.0.0.1:4173/tests/constrained-reset-action-smoke.html",
     expected: "PASS: Direct reset action restores the worker hydration baseline through a full snapshot.",
     name: "Constrained reset action harness"
