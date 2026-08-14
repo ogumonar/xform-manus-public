@@ -20,6 +20,7 @@
   class XFormsSetValueActionBridge {
     static create({ host, client, inlineInstanceXml } = {}) {
       if (!host || !client) throw new SetValueActionError("missing-action-host", "Setvalue action bridge requires a host and worker client.");
+      if (!root.XFormsActionDeclarationSource?.collect) throw new SetValueActionError("action-declaration-source-unavailable", "Load xforms-action-declaration-source.js before xforms-setvalue-action-bridge.js.");
       if (!root.XFormsPropertyEvaluator?.evaluate) throw new SetValueActionError("evaluator-unavailable", "Load xforms-property-evaluator.js before the setvalue action bridge.");
       const documentNode = new DOMParser().parseFromString(inlineInstanceXml, "application/xml");
       if (documentNode.querySelector("parsererror")) throw new SetValueActionError("invalid-instance", "Cannot parse inline XML for setvalue actions.");
@@ -40,13 +41,7 @@
     }
 
     discover() {
-      const sourceTriggers = Array.from(this.host.querySelectorAll("xf\\:trigger[id]"));
-      const adaptedTriggers = Array.from(this.host.querySelectorAll("xforms-trigger[id]")).filter((trigger) =>
-        Array.from(trigger.children).some((child) => child.localName === "template" && child.hasAttribute("data-xforms-action-declarations"))
-      );
-      for (const trigger of [...sourceTriggers, ...adaptedTriggers]) {
-        const declarationTemplate = Array.from(trigger.children).find((child) => child.localName === "template" && child.hasAttribute("data-xforms-action-declarations"));
-        const actionChildren = declarationTemplate ? Array.from(declarationTemplate.content.children) : Array.from(trigger.children);
+      for (const { trigger, actionChildren } of root.XFormsActionDeclarationSource.collect(this.host)) {
         const action = actionChildren.find((child) => child.namespaceURI === "http://www.w3.org/2002/xforms" && child.localName === "setvalue");
         if (!action) continue;
         const ref = action.getAttribute("ref")?.trim();

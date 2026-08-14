@@ -12,6 +12,7 @@
   class XFormsResetActionBridge {
     static create({ host, client } = {}) {
       if (!host || !client?.reset) throw new ResetActionError("missing-reset-client", "Reset action bridge requires a host and an initialized worker client.");
+      if (!root.XFormsActionDeclarationSource?.collect) throw new ResetActionError("action-declaration-source-unavailable", "Load xforms-action-declaration-source.js before xforms-reset-action-bridge.js.");
       return new XFormsResetActionBridge(host, client);
     }
 
@@ -25,13 +26,7 @@
     }
 
     discover() {
-      const sourceTriggers = Array.from(this.host.querySelectorAll("xf\\:trigger[id]"));
-      const adaptedTriggers = Array.from(this.host.querySelectorAll("xforms-trigger[id]")).filter((trigger) =>
-        Array.from(trigger.children).some((child) => child.localName === "template" && child.hasAttribute("data-xforms-action-declarations"))
-      );
-      for (const trigger of [...sourceTriggers, ...adaptedTriggers]) {
-        const declarationTemplate = Array.from(trigger.children).find((child) => child.localName === "template" && child.hasAttribute("data-xforms-action-declarations"));
-        const actionChildren = declarationTemplate ? Array.from(declarationTemplate.content.children) : Array.from(trigger.children);
+      for (const { trigger, actionChildren } of root.XFormsActionDeclarationSource.collect(this.host)) {
         const actions = actionChildren.filter((child) => child.namespaceURI === XFORMS_NAMESPACE && ACTION_ELEMENTS.has(child.localName));
         if (!actions.length) continue;
         if (actions.length !== 1 || actions[0].localName !== "reset") {
