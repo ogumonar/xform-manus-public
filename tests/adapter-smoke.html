@@ -13,14 +13,14 @@
   <div id="fixture">
     <xf:model id="ignored-model"></xf:model>
     <section>
-      <xf:group id="contact-group">
+      <xf:group id="contact-group" ref="/data/contact">
         <xf:label>Contact details</xf:label>
         <xf:hint>All fields are local test data.</xf:hint>
-        <xf:input id="name" data-node-id="0">
+        <xf:input id="name" ref="name" data-node-id="0">
           <xf:label>Display name</xf:label>
           <xf:hint>Use a recognisable name.</xf:hint>
         </xf:input>
-        <xf:select1 id="role" data-node-id="1">
+        <xf:select1 id="role" ref="role" data-node-id="1">
           <xf:label>Role</xf:label>
           <xf:item><xf:label>Author</xf:label><xf:value>author</xf:value></xf:item>
           <xf:item><xf:label>Reviewer</xf:label><xf:value>reviewer</xf:value></xf:item>
@@ -55,6 +55,7 @@
         assert(summary.upgraded === 6 && summary.skipped === 1, `Unexpected upgrade summary: ${JSON.stringify(summary)}`);
         assert(group && input && select1 && switchElement && basic && advanced, "Expected source controls and containers to become components.");
         assert(input.getAttribute("node-id") === "0" && input.getAttribute("control-id") === "name", "Input identity bridge was not preserved.");
+        assert(group.getAttribute("ref") === "/data/contact" && input.getAttribute("ref") === "name" && select1.getAttribute("ref") === "role", "Explicit source ref metadata was not preserved on adapted components.");
         assert(input.shadowRoot.querySelector("label")?.textContent === "Display name", "Input label was not projected.");
         assert(group.shadowRoot.querySelector("legend")?.textContent === "Contact details", "Group label was not projected.");
         const options = select1.shadowRoot.querySelectorAll("option");

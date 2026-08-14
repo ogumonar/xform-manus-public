@@ -152,6 +152,7 @@
           destination.id = source.id;
           destination.setAttribute("control-id", source.id);
         }
+        if (source.hasAttribute("ref")) destination.setAttribute("ref", source.getAttribute("ref"));
         const nodeId = validNodeId(source);
         if (nodeId !== null) destination.setAttribute("node-id", nodeId);
         if (name === "case") {
