@@ -38,6 +38,11 @@ const checks = [
     name: "Inline instance worker hydration harness"
   },
   {
+    url: "http://127.0.0.1:4173/tests/constrained-setfocus-action-smoke.html",
+    expected: "PASS: Direct setfocus actions delegate focus through the target component.",
+    name: "Constrained setfocus action harness"
+  },
+  {
     url: "http://127.0.0.1:4173/tests/constrained-toggle-action-smoke.html",
     expected: "PASS: Direct toggle actions update switch case projection without worker mutation.",
     name: "Constrained toggle action harness"

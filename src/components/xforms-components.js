@@ -73,6 +73,12 @@
       return this.getAttribute("control-id") || this.id || this.uid;
     }
 
+    focus(options) {
+      const native = this.shadowRoot?.querySelector("input, textarea, select, button, [tabindex]");
+      if (native) return native.focus(options);
+      return super.focus(options);
+    }
+
     bindClient(client) {
       const nodeId = this.nodeId;
       if (this.client === client && this.boundNodeId === nodeId) return;
@@ -421,6 +427,7 @@
       this.actionBridge = null;
       this.setIndexActionBridge = null;
       this.toggleActionBridge = null;
+      this.setFocusActionBridge = null;
     }
 
     connectedCallback() {
@@ -453,6 +460,7 @@
       if (this.hasAttribute("enable-setvalue-actions")) this.actionBridge = createSetValueActionBridge(discoveredModel, this, this.engineClient);
       if (this.hasAttribute("enable-setindex-actions")) this.setIndexActionBridge = createSetIndexActionBridge(this);
       if (this.hasAttribute("enable-toggle-actions")) this.toggleActionBridge = createToggleActionBridge(this);
+      if (this.hasAttribute("enable-setfocus-actions")) this.setFocusActionBridge = createSetFocusActionBridge(this);
       if (this.hasAttribute("project-repeats")) projectDiscoveredRepeats(discoveredModel, this);
       const nodeCount = discoveredInstance?.nodeCount ?? configuredNodeCount;
       const explicitDependencies = parseDependencies(this.getAttribute("dependencies"));
@@ -487,6 +495,8 @@
       this.setIndexActionBridge = null;
       this.toggleActionBridge?.dispose();
       this.toggleActionBridge = null;
+      this.setFocusActionBridge?.dispose();
+      this.setFocusActionBridge = null;
       for (const component of this.querySelectorAll(CONTROL_SELECTOR)) component.bindClient?.(null);
       this.engineClient?.dispose();
       this.engineClient = null;
@@ -626,6 +636,13 @@
   function mergeHydrationProjections(generated, explicit) {
     const explicitNodeIds = new Set(explicit.map((entry) => entry?.nodeId));
     return [...generated.filter((entry) => !explicitNodeIds.has(entry.nodeId)), ...explicit];
+  }
+
+  function createSetFocusActionBridge(host) {
+    if (!root.XFormsSetFocusActionBridge?.create) {
+      throw new Error("Load xforms-setfocus-action-bridge.js before using <xforms-host enable-setfocus-actions>.");
+    }
+    return root.XFormsSetFocusActionBridge.create({ host });
   }
 
   function createToggleActionBridge(host) {
