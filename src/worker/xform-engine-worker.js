@@ -12,6 +12,7 @@ let engine = 0;
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 let lastSequence = 0;
+let hydrationBaseline = null;
 
 async function boot() {
   if (wasm) return wasm;
@@ -230,6 +231,30 @@ function initialInstancePatches(nodeCount) {
   return projectNodes(Array.from({ length: nodeCount }, (_, nodeId) => nodeId));
 }
 
+function constructHydratedEngine(hydration) {
+  if (engine) wasm.xfr_engine_destroy(engine);
+  engine = wasm.xfr_engine_create(hydration.nodeCount);
+  try {
+    const inlineInstanceNodeCount = hydration.inlineInstanceXml === null
+      ? null
+      : hydrateInlineInstance(hydration.inlineInstanceXml);
+    if (inlineInstanceNodeCount !== null && inlineInstanceNodeCount !== hydration.nodeCount) {
+      throw new Error(`Inline XML instance contains ${inlineInstanceNodeCount} element nodes, but hydrate.nodeCount is ${hydration.nodeCount}.`);
+    }
+    for (const edge of hydration.dependencies) {
+      const status = wasm.xfr_engine_add_dependency(engine, edge.source, edge.dependent);
+      if (status !== 0) throw new Error(`Invalid dependency ${edge.source} → ${edge.dependent}.`);
+    }
+    for (const projection of hydration.initialValues) setValue(projection.nodeId, projection.value);
+    for (const projection of hydration.initialModelItemFlags) setModelItemFlags(projection.nodeId, projection.flags);
+    return inlineInstanceNodeCount;
+  } catch (error) {
+    wasm.xfr_engine_destroy(engine);
+    engine = 0;
+    throw error;
+  }
+}
+
 function setValue(nodeId, value) {
   if (typeof value !== "string") throw new Error("The current worker accepts scalar string set-value intents only.");
   const bytes = textEncoder.encode(value);
@@ -329,20 +354,8 @@ self.onmessage = async (event) => {
     if (message.kind === "hydrate") {
       const startedAt = performance.now();
       const hydration = validateHydration(message);
-      if (engine) wasm.xfr_engine_destroy(engine);
-      engine = wasm.xfr_engine_create(hydration.nodeCount);
-      const inlineInstanceNodeCount = hydration.inlineInstanceXml === null
-        ? null
-        : hydrateInlineInstance(hydration.inlineInstanceXml);
-      if (inlineInstanceNodeCount !== null && inlineInstanceNodeCount !== hydration.nodeCount) {
-        throw new Error(`Inline XML instance contains ${inlineInstanceNodeCount} element nodes, but hydrate.nodeCount is ${hydration.nodeCount}.`);
-      }
-      for (const edge of hydration.dependencies) {
-        const status = wasm.xfr_engine_add_dependency(engine, edge.source, edge.dependent);
-        if (status !== 0) throw new Error(`Invalid dependency ${edge.source} → ${edge.dependent}.`);
-      }
-      for (const projection of hydration.initialValues) setValue(projection.nodeId, projection.value);
-      for (const projection of hydration.initialModelItemFlags) setModelItemFlags(projection.nodeId, projection.flags);
+      const inlineInstanceNodeCount = constructHydratedEngine(hydration);
+      hydrationBaseline = hydration;
       lastSequence = message.sequence || 0;
       postProtocolMessage({
         kind: "hydrated",
@@ -371,6 +384,30 @@ self.onmessage = async (event) => {
           }
         });
       }
+      return;
+    }
+    if (message.kind === "reset") {
+      assertEngine();
+      const sequence = message.sequence >>> 0;
+      if (sequence <= lastSequence) return;
+      if (!hydrationBaseline) throw new Error("The XForms worker has no hydration baseline to restore.");
+      const startedAt = performance.now();
+      constructHydratedEngine(hydrationBaseline);
+      lastSequence = sequence;
+      const patches = initialInstancePatches(hydrationBaseline.nodeCount);
+      postProtocolMessage({
+        kind: "patches",
+        sequence,
+        patches,
+        metrics: {
+          dirtyNodes: 0,
+          changedNodes: patches.length,
+          transactionVersion: wasm.xfr_engine_transaction_version(engine),
+          workerUpdateMs: performance.now() - startedAt,
+          fullSnapshot: true,
+          reset: true
+        }
+      });
       return;
     }
     if (message.kind === "simple-path-query") {
@@ -433,6 +470,7 @@ self.onmessage = async (event) => {
     if (message.kind === "dispose") {
       if (engine) wasm.xfr_engine_destroy(engine);
       engine = 0;
+      hydrationBaseline = null;
       postProtocolMessage({ kind: "disposed" });
       return;
     }

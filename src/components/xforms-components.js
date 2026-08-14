@@ -428,6 +428,7 @@
       this.setIndexActionBridge = null;
       this.toggleActionBridge = null;
       this.setFocusActionBridge = null;
+      this.resetActionBridge = null;
     }
 
     connectedCallback() {
@@ -461,6 +462,7 @@
       if (this.hasAttribute("enable-setindex-actions")) this.setIndexActionBridge = createSetIndexActionBridge(this);
       if (this.hasAttribute("enable-toggle-actions")) this.toggleActionBridge = createToggleActionBridge(this);
       if (this.hasAttribute("enable-setfocus-actions")) this.setFocusActionBridge = createSetFocusActionBridge(this);
+      if (this.hasAttribute("enable-reset-actions")) this.resetActionBridge = createResetActionBridge(this, this.engineClient);
       if (this.hasAttribute("project-repeats")) projectDiscoveredRepeats(discoveredModel, this);
       if (this.hasAttribute("bind-repeat-controls")) bindRepeatOccurrenceControls(discoveredModel, this, this.engineClient);
       const nodeCount = discoveredInstance?.nodeCount ?? configuredNodeCount;
@@ -498,6 +500,8 @@
       this.toggleActionBridge = null;
       this.setFocusActionBridge?.dispose();
       this.setFocusActionBridge = null;
+      this.resetActionBridge?.dispose();
+      this.resetActionBridge = null;
       for (const component of this.querySelectorAll(CONTROL_SELECTOR)) component.bindClient?.(null);
       this.engineClient?.dispose();
       this.engineClient = null;
@@ -637,6 +641,13 @@
   function mergeHydrationProjections(generated, explicit) {
     const explicitNodeIds = new Set(explicit.map((entry) => entry?.nodeId));
     return [...generated.filter((entry) => !explicitNodeIds.has(entry.nodeId)), ...explicit];
+  }
+
+  function createResetActionBridge(host, client) {
+    if (!root.XFormsResetActionBridge?.create) {
+      throw new Error("Load xforms-reset-action-bridge.js before using <xforms-host enable-reset-actions>.");
+    }
+    return root.XFormsResetActionBridge.create({ host, client });
   }
 
   function createSetFocusActionBridge(host) {

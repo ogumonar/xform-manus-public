@@ -42,6 +42,10 @@
       return this.request("intent", { intent });
     }
 
+    reset() {
+      return this.request("reset", {});
+    }
+
     querySimplePath(path, contextNodes = []) {
       return this.request("simple-path-query", { path, contextNodes });
     }
