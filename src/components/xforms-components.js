@@ -462,6 +462,7 @@
       if (this.hasAttribute("enable-toggle-actions")) this.toggleActionBridge = createToggleActionBridge(this);
       if (this.hasAttribute("enable-setfocus-actions")) this.setFocusActionBridge = createSetFocusActionBridge(this);
       if (this.hasAttribute("project-repeats")) projectDiscoveredRepeats(discoveredModel, this);
+      if (this.hasAttribute("bind-repeat-controls")) bindRepeatOccurrenceControls(discoveredModel, this, this.engineClient);
       const nodeCount = discoveredInstance?.nodeCount ?? configuredNodeCount;
       const explicitDependencies = parseDependencies(this.getAttribute("dependencies"));
       const dependencies = mergeDependencies(explicitDependencies, this.hasAttribute("register-static-dependencies")
@@ -682,6 +683,28 @@
       } catch (error) {
         host.dispatchEvent(new CustomEvent("xforms-repeat-projection-diagnostic", {
           detail: { repeat, bindId: repeat.getAttribute("bind-id"), code: error.code || "repeat-projection-failed", message: error.message }, bubbles: true, composed: true
+        }));
+      }
+    }
+  }
+
+  function bindRepeatOccurrenceControls(discoveredModel, host, client) {
+    if (!host.hasAttribute("project-repeats")) throw new Error("<xforms-host bind-repeat-controls> requires project-repeats.");
+    if (!discoveredModel) throw new Error("<xforms-host bind-repeat-controls> requires discover-model and one inline xf:instance.");
+    if (!root.XFormsRepeatOccurrenceContextAdapter?.bind) {
+      throw new Error("Load xforms-repeat-occurrence-context-adapter.js before using <xforms-host bind-repeat-controls>.");
+    }
+    for (const repeat of host.querySelectorAll("xforms-repeat[bind-id]")) {
+      try {
+        root.XFormsRepeatOccurrenceContextAdapter.bind({
+          inlineInstanceXml: discoveredModel.instance.xml,
+          bindings: discoveredModel.bindings,
+          repeat,
+          client
+        });
+      } catch (error) {
+        host.dispatchEvent(new CustomEvent("xforms-repeat-context-diagnostic", {
+          detail: Object.freeze({ repeat, bindId: repeat.getAttribute("bind-id"), code: error.code || "repeat-context-failed", message: error.message }), bubbles: true, composed: true
         }));
       }
     }

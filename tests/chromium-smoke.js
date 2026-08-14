@@ -68,6 +68,11 @@ const checks = [
     name: "Discovered repeat projection harness"
   },
   {
+    url: "http://127.0.0.1:4173/tests/repeat-occurrence-context-smoke.html",
+    expected: "PASS: Repeat occurrence context binds cloned controls to proven local compact targets.",
+    name: "Repeat occurrence context harness"
+  },
+  {
     url: "http://127.0.0.1:4173/tests/repeat-component-smoke.html",
     expected: "PASS: Keyed repeat projection preserves occurrences and emits one-based index events.",
     name: "Repeat component harness"
