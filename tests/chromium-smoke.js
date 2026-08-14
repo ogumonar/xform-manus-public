@@ -13,6 +13,11 @@ const serverScript = path.join(root, "tests/static-server.js");
 const browser = process.env.CHROMIUM_BIN || "chromium";
 const checks = [
   {
+    url: "http://127.0.0.1:4173/tests/bind-id-control-association-smoke.html",
+    expected: "PASS: Source control bind IDs resolve to singleton discovered worker targets.",
+    name: "Bind-ID control association harness"
+  },
+  {
     url: "http://127.0.0.1:4173/",
     expected: "Live automatically ref-bound control",
     name: "Public automatic-ref landing page"

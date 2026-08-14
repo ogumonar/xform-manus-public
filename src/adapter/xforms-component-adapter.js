@@ -25,6 +25,7 @@
     repeat: "xforms-repeat"
   });
   const CONTAINER_ELEMENTS = new Set(["group", "switch", "case"]);
+  const VALUE_CONTROL_ELEMENTS = new Set(["input", "secret", "textarea", "range", "output", "select", "select1"]);
   const PRESENTATION_CHILDREN = new Set(["label", "hint", "alert", "value", "item", "choices", "itemset"]);
   const SKIPPED_ELEMENTS = new Set(["model", "instance", "bind", "itemset", "submission"]);
 
@@ -188,6 +189,7 @@
           destination.setAttribute("control-id", source.id);
         }
         if (source.hasAttribute("ref")) destination.setAttribute("ref", source.getAttribute("ref"));
+        if (VALUE_CONTROL_ELEMENTS.has(name) && source.hasAttribute("bind")) destination.setAttribute("bind", source.getAttribute("bind"));
         const nodeId = validNodeId(source);
         if (nodeId !== null) destination.setAttribute("node-id", nodeId);
         if (name === "case") {

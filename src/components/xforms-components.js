@@ -424,6 +424,8 @@
       this.componentObserver = null;
       this.hydrationQueued = false;
       this.pendingControlRefBindings = new Map();
+      this.discoveredModel = null;
+      this.resolvedBindTargets = null;
       this.actionBridge = null;
       this.setIndexActionBridge = null;
       this.toggleActionBridge = null;
@@ -459,6 +461,8 @@
       this.observeDescendantComponents();
       const configuredNodeCount = Number(this.getAttribute("node-count") || 0);
       const discoveredModel = this.hasAttribute("discover-model") ? discoverInlineModel(this, configuredNodeCount) : null;
+      this.discoveredModel = discoveredModel;
+      this.resolvedBindTargets = null;
       const discoveredInstance = discoveredModel?.instance ?? null;
       if (this.hasAttribute("enable-setvalue-actions")) this.actionBridge = createSetValueActionBridge(discoveredModel, this, this.engineClient);
       if (this.hasAttribute("enable-setindex-actions")) this.setIndexActionBridge = createSetIndexActionBridge(this);
@@ -496,6 +500,8 @@
       this.componentObserver = null;
       this.hydrationQueued = false;
       this.pendingControlRefBindings.clear();
+      this.discoveredModel = null;
+      this.resolvedBindTargets = null;
       this.actionBridge?.dispose();
       this.actionBridge = null;
       this.setIndexActionBridge?.dispose();
@@ -525,7 +531,19 @@
 
     resolveDescendantControlRefs() {
       if (!this.isAutoControlBindingEnabled()) return;
-      for (const component of this.querySelectorAll(REF_CONTROL_SELECTOR)) this.requestControlRefBinding(component);
+      for (const component of this.querySelectorAll(REF_CONTROL_SELECTOR)) this.requestAutomaticControlBinding(component);
+    }
+
+    requestAutomaticControlBinding(component) {
+      if (!this.isAutoControlBindingEnabled() || component?.hasAttribute("node-id")) return;
+      const ref = component.getAttribute("ref")?.trim();
+      const bindId = component.getAttribute("bind")?.trim();
+      if (ref && bindId) {
+        this.dispatchControlBindingDiagnostic(component, ref, "conflicting-control-binding", "A control cannot use both ref and bind in the constrained automatic association path.", "ref", bindId);
+        return;
+      }
+      if (bindId) this.requestControlBindBinding(component, bindId);
+      else if (ref) this.requestControlRefBinding(component);
     }
 
     requestControlRefBinding(component) {
@@ -535,6 +553,41 @@
       if (!ref || Array.from(this.pendingControlRefBindings.values()).some((pending) => pending.component === component)) return;
       const sequence = this.engineClient.querySimplePath(ref);
       this.pendingControlRefBindings.set(sequence, { component, ref });
+    }
+
+    requestControlBindBinding(component, bindId) {
+      if (!this.isAutoControlBindingEnabled() || !this.engineClient || !component?.matches?.(REF_CONTROL_SELECTOR) || component.hasAttribute("node-id")) return;
+      if (!this.discoveredModel?.instance || !Array.isArray(this.discoveredModel.bindings)) {
+        this.dispatchControlBindingDiagnostic(component, bindId, "bind-controls-requires-discovered-model", "Control bind association requires one discovered inline model and instance.", "bind");
+        return;
+      }
+      try {
+        if (!this.resolvedBindTargets) {
+          if (!root.XFormsBindTargetResolver?.resolve) throw new Error("Load xforms-bind-target-resolver.js before associating controls by bind ID.");
+          const instanceDocument = new DOMParser().parseFromString(this.discoveredModel.instance.xml, "application/xml");
+          if (instanceDocument.querySelector("parsererror")) throw new Error("The discovered inline instance could not be parsed for bind association.");
+          this.resolvedBindTargets = root.XFormsBindTargetResolver.resolve({ instanceDocument, bindings: this.discoveredModel.bindings });
+        }
+        const matches = this.resolvedBindTargets.filter((entry) => entry.sourceId === bindId);
+        if (matches.length !== 1) {
+          const code = matches.length ? "ambiguous-control-bind" : "unknown-control-bind";
+          this.dispatchControlBindingDiagnostic(component, bindId, code, `Control bind '${bindId}' matched ${matches.length} discovered bind declarations; exactly one is required.`, "bind");
+          return;
+        }
+        const nodeIds = matches[0].nodeIds;
+        if (nodeIds.length !== 1 || !Number.isSafeInteger(nodeIds[0]) || nodeIds[0] < 0) {
+          this.dispatchControlBindingDiagnostic(component, bindId, "ambiguous-control-bind", `Control bind '${bindId}' resolved to ${nodeIds.length} nodes; exactly one target is required.`, "bind");
+          return;
+        }
+        const nodeId = nodeIds[0];
+        component.setAttribute("node-id", String(nodeId));
+        component.bindClient(this.engineClient);
+        this.dispatchEvent(new CustomEvent("xforms-control-bound", {
+          detail: { component, controlId: component.controlId, bindId, nodeId }, bubbles: true, composed: true
+        }));
+      } catch (error) {
+        this.dispatchControlBindingDiagnostic(component, bindId, error.code || "control-bind-resolution-failed", error.message || `Control bind '${bindId}' could not be resolved.`, "bind");
+      }
     }
 
     applyConstrainedRecalculation(message) {
@@ -589,9 +642,16 @@
       this.dispatchControlBindingDiagnostic(component, ref, message.code || "control-ref-query-failed", message.message || `Control ref '${ref}' could not be resolved.`);
     }
 
-    dispatchControlBindingDiagnostic(component, ref, code, message) {
+    dispatchControlBindingDiagnostic(component, reference, code, message, kind = "ref", bindId = null) {
       this.dispatchEvent(new CustomEvent("xforms-control-binding-diagnostic", {
-        detail: { component, controlId: component.controlId, ref, code, message }, bubbles: true, composed: true
+        detail: {
+          component,
+          controlId: component.controlId,
+          ref: kind === "ref" ? reference : null,
+          bindId: kind === "bind" ? reference : bindId,
+          code,
+          message
+        }, bubbles: true, composed: true
       }));
     }
 
@@ -612,7 +672,7 @@
         ...(node.querySelectorAll?.(CONTROL_SELECTOR) || [])
       ];
       for (const component of components) component.bindClient?.(this.engineClient);
-      for (const component of components) this.requestControlRefBinding(component);
+      for (const component of components) this.requestAutomaticControlBinding(component);
     }
   }
 
