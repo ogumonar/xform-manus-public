@@ -128,7 +128,7 @@
             <li>Opt-in direct <code>xf:toggle</code> actions that select projected switch cases.</li>
             <li>Opt-in direct <code>xf:setfocus</code> actions delegated through target components.</li>
             <li>Opt-in direct <code>xf:reset</code> actions that restore the worker-held hydration baseline.</li>
-            <li>Opt-in direct <code>xf:dispatch</code> actions that send one custom event to an explicit in-host component.</li>
+            <li>Opt-in direct <code>xf:dispatch</code> actions that send one custom event to an explicit in-host component, including one inert declaration retained during trigger adaptation.</li>
             <li>Opt-in direct <code>xf:message</code> actions that emit one declared text payload through a host event, including one inert declaration retained during trigger adaptation.</li>
             <li>Accessible input, choice, activation, and container components.</li>
             <li>Opt-in static XForms-markup adaptation for an early presentation subset, including source <code>xf:repeat[bind]</code> templates, inert template content, and passive explicit <code>ref</code> metadata preservation.</li>
@@ -159,6 +159,7 @@
           <a class="lab-link" href="tests/primitive-type-validation-smoke.html"><strong>Primitive type validation</strong><span>Constrained <code>xs:</code> lexical validity projects invalid, valid, and unsupported-type outcomes.</span></a>
           <a class="lab-link" href="tests/adapted-message-action-smoke.html"><strong>Adapted message action</strong><span>An adapted source trigger retains one inert message declaration for the opt-in bridge.</span></a>
           <a class="lab-link" href="tests/constrained-message-action-smoke.html"><strong>Direct message action</strong><span>A matched trigger emits one declared text payload through a structured host event.</span></a>
+          <a class="lab-link" href="tests/adapted-dispatch-action-smoke.html"><strong>Adapted dispatch action</strong><span>An adapted source trigger retains one inert dispatch declaration for the opt-in bridge.</span></a>
           <a class="lab-link" href="tests/constrained-dispatch-action-smoke.html"><strong>Direct dispatch action</strong><span>A matched trigger sends one custom event to an explicit component target.</span></a>
           <a class="lab-link" href="tests/constrained-reset-action-smoke.html"><strong>Direct reset action</strong><span>A matched trigger restores the worker-held hydration baseline through a full snapshot.</span></a>
           <a class="lab-link" href="tests/constrained-setfocus-action-smoke.html"><strong>Direct setfocus action</strong><span>A matched trigger delegates accessible focus through one target component.</span></a>

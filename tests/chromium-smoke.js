@@ -58,6 +58,11 @@ const checks = [
     name: "Constrained message action harness"
   },
   {
+    url: "http://127.0.0.1:4173/tests/adapted-dispatch-action-smoke.html",
+    expected: "PASS: Adapted source trigger dispatch declarations remain available to the direct dispatch bridge.",
+    name: "Adapted dispatch action harness"
+  },
+  {
     url: "http://127.0.0.1:4173/tests/constrained-dispatch-action-smoke.html",
     expected: "PASS: Direct dispatch actions send one custom event to the explicit target component.",
     name: "Constrained dispatch action harness"
