@@ -73,6 +73,11 @@ const checks = [
     name: "Discovered repeat projection harness"
   },
   {
+    url: "http://127.0.0.1:4173/tests/adapted-repeat-occurrence-context-smoke.html",
+    expected: "PASS: Adapted repeat template controls bind to occurrence-local worker targets.",
+    name: "Adapted repeat occurrence context harness"
+  },
+  {
     url: "http://127.0.0.1:4173/tests/repeat-occurrence-context-smoke.html",
     expected: "PASS: Repeat occurrence context binds cloned controls to proven local compact targets.",
     name: "Repeat occurrence context harness"
