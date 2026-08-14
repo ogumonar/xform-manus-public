@@ -123,7 +123,7 @@
             <li>Keyed repeat presentation with stable occurrence identity and one-based index events.</li>
             <li>Opt-in discovered top-level collection projection into keyed repeat occurrences.</li>
             <li>Opt-in repeat-template control association for an occurrence item or one uniquely proven direct child.</li>
-            <li>Opt-in direct XPath-valued <code>xf:setvalue</code> actions routed through the worker.</li>
+            <li>Opt-in direct XPath-valued <code>xf:setvalue</code> actions routed through the worker, including one inert declaration retained during trigger adaptation.</li>
             <li>Opt-in direct <code>xf:setindex</code> actions that update projected repeat selection.</li>
             <li>Opt-in direct <code>xf:toggle</code> actions that select projected switch cases.</li>
             <li>Opt-in direct <code>xf:setfocus</code> actions delegated through target components.</li>
@@ -166,6 +166,7 @@
           <a class="lab-link" href="tests/constrained-setfocus-action-smoke.html"><strong>Direct setfocus action</strong><span>A matched trigger delegates accessible focus through one target component.</span></a>
           <a class="lab-link" href="tests/constrained-toggle-action-smoke.html"><strong>Direct toggle action</strong><span>A matched trigger selects one projected switch case without XML or worker mutation.</span></a>
           <a class="lab-link" href="tests/constrained-setindex-action-smoke.html"><strong>Direct setindex action</strong><span>A matched trigger selects one projected repeat occurrence without XML or worker mutation.</span></a>
+          <a class="lab-link" href="tests/adapted-setvalue-action-smoke.html"><strong>Adapted setvalue action</strong><span>An adapted source trigger retains one XPath declaration for the worker-authoritative bridge.</span></a>
           <a class="lab-link" href="tests/constrained-setvalue-action-smoke.html"><strong>Direct setvalue action</strong><span>A matched trigger evaluates one namespace-aware XPath scalar and routes the single target through the worker.</span></a>
           <a class="lab-link" href="tests/discovered-repeat-projection-smoke.html"><strong>Discovered repeat projection</strong><span>A top-level discovered collection bind projects compact keyed occurrence data without component XML ownership.</span></a>
           <a class="lab-link" href="tests/source-repeat-adaptation-smoke.html"><strong>Source repeat adaptation</strong><span>Source <code>xf:repeat[bind]</code> becomes a projected static repeat template.</span></a>

@@ -141,12 +141,24 @@
         }
       };
 
+      const copyNamespaceDeclarations = (source, destination) => {
+        for (let cursor = source; cursor && cursor.nodeType === Node.ELEMENT_NODE; cursor = cursor.parentElement) {
+          for (const attribute of cursor.attributes) {
+            if (attribute.name.startsWith("xmlns:") && !destination.hasAttribute(attribute.name)) destination.setAttribute(attribute.name, attribute.value);
+          }
+        }
+      };
+
       const actionDeclarationTemplate = (source) => {
-        const actions = Array.from(source.children).filter((child) => isXForms(child) && ACTION_ELEMENTS.has(localName(child)));
+        const actions = Array.from(source.children).filter((child) => isXForms(child) && ACTION_ELEMENTS.has(localName(child));
         if (!actions.length) return null;
         const template = source.ownerDocument.createElement("template");
         template.setAttribute("data-xforms-action-declarations", "");
-        for (const action of actions) template.content.append(action.cloneNode(true));
+        for (const action of actions) {
+          const clone = action.cloneNode(true);
+          copyNamespaceDeclarations(action, clone);
+          template.content.append(clone);
+        }
         return template;
       };
 

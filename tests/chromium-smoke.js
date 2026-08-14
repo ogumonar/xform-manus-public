@@ -93,6 +93,11 @@ const checks = [
     name: "Constrained setindex action harness"
   },
   {
+    url: "http://127.0.0.1:4173/tests/adapted-setvalue-action-smoke.html",
+    expected: "PASS: Adapted source trigger setvalue declarations route XPath values through the worker.",
+    name: "Adapted setvalue action harness"
+  },
+  {
     url: "http://127.0.0.1:4173/tests/constrained-setvalue-action-smoke.html",
     expected: "PASS: Direct trigger setvalue actions resolve one target and mutate through the worker.",
     name: "Constrained setvalue action harness"

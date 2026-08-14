@@ -40,8 +40,14 @@
     }
 
     discover() {
-      for (const trigger of this.host.querySelectorAll("xf\\:trigger[id]")) {
-        const action = Array.from(trigger.children).find((child) => child.namespaceURI === "http://www.w3.org/2002/xforms" && child.localName === "setvalue");
+      const sourceTriggers = Array.from(this.host.querySelectorAll("xf\\:trigger[id]"));
+      const adaptedTriggers = Array.from(this.host.querySelectorAll("xforms-trigger[id]")).filter((trigger) =>
+        Array.from(trigger.children).some((child) => child.localName === "template" && child.hasAttribute("data-xforms-action-declarations"))
+      );
+      for (const trigger of [...sourceTriggers, ...adaptedTriggers]) {
+        const declarationTemplate = Array.from(trigger.children).find((child) => child.localName === "template" && child.hasAttribute("data-xforms-action-declarations"));
+        const actionChildren = declarationTemplate ? Array.from(declarationTemplate.content.children) : Array.from(trigger.children);
+        const action = actionChildren.find((child) => child.namespaceURI === "http://www.w3.org/2002/xforms" && child.localName === "setvalue");
         if (!action) continue;
         const ref = action.getAttribute("ref")?.trim();
         const literal = action.getAttribute("xfr-literal");
