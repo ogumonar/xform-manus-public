@@ -43,6 +43,11 @@ const checks = [
     name: "Primitive type validation harness"
   },
   {
+    url: "http://127.0.0.1:4173/tests/constrained-message-action-smoke.html",
+    expected: "PASS: Direct message actions emit one structured host message event.",
+    name: "Constrained message action harness"
+  },
+  {
     url: "http://127.0.0.1:4173/tests/constrained-dispatch-action-smoke.html",
     expected: "PASS: Direct dispatch actions send one custom event to the explicit target component.",
     name: "Constrained dispatch action harness"
